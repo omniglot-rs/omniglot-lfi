@@ -1,12 +1,21 @@
-[package]
-name = "lfi-bind-rust"
+[workspace]
+resolver = "2"
+members = [
+    "omniglot-lfi",
+    "examples/add",
+]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
 
-[build-dependencies]
-bindgen = "0.72.0"
-pkg-config = "0.3.32"
-cc = "1.2.29"
+[workspace.dependencies.omniglot]
+git = "https://github.com/omniglot-rs/omniglot"
+rev = "a9cda47f9c0f8ce943fef63b139dcf960687a1a2"
+# path = "../omniglot"
+features = [ "std" ]
 
-[dependencies]
-page_size = "0.6.0"
+[workspace.dependencies.bindgen]
+git = "https://github.com/omniglot-rs/rust-bindgen"
+rev = "568c9c50f876776a46a82568c69217d8e70d1781"
+# path = "../rust-bindgen/bindgen"

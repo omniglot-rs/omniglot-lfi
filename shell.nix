@@ -2,43 +2,44 @@
 
 let
   lfi-runtime-git-rev =
-    "509da63e416db306d56ed9c73266c3b35fdd0767";
+    "49a562b0dcfcb435123b5025927c3355e447c740";
 
   lfi-runtime = pkgs.stdenv.mkDerivation rec {
     pname = "lfi-runtime";
     version = "git-${builtins.substring 0 14 lfi-runtime-git-rev}";
 
-    src = /home/leons/hack/lfi/lfi-runtime;
-    # src = pkgs.fetchFromGitHub {
-    #   owner = "lfi-project";
-    #   repo = pname;
-    #   rev = lfi-runtime-git-rev;
+    src = pkgs.fetchFromGitHub {
+      owner = "lfi-project";
+      repo = pname;
+      rev = lfi-runtime-git-rev;
 
-    #   nativeBuildInputs = with pkgs; [ meson git cacert jc jq ];
+      nativeBuildInputs = with pkgs; [ meson git cacert jc jq patch ];
 
-    #   postFetch = ''
-    #       cd "$out"
+      postFetch = ''
+          cd "$out"
 
-    #       function fetchSubprojects() {
-    #         pushd "$1"
+          patch -p1 <${./lfi-runtime_subprojects-pin-dependencies-to-git-revisions.patch}
 
-    #         for prj in ./subprojects/*.wrap; do
-    #           prjname="$(basename "$prj" .wrap)"
-    #           prjdir="$(cat "$prj" | jc --ini | jq -r '."wrap-git"."directory" // "'"$prjname"'"')"
-    #           echo "=====> Fetching $prj, placed in $prjdir"
-    #           meson subprojects download "$(basename "$prj" .wrap)"
-    #           rm -r "./subprojects/$prjdir/.git"
-    #         done
+          function fetchSubprojects() {
+            pushd "$1"
 
-    #         popd
-    #       }
+            for prj in ./subprojects/*.wrap; do
+              prjname="$(basename "$prj" .wrap)"
+              prjdir="$(cat "$prj" | jc --ini | jq -r '."wrap-git"."directory" // "'"$prjname"'"')"
+              echo "=====> Fetching $prj, placed in $prjdir"
+              meson subprojects download "$(basename "$prj" .wrap)"
+              rm -r "./subprojects/$prjdir/.git"
+            done
 
-    #       fetchSubprojects ""
-    #       fetchSubprojects "subprojects/lfi-verifier"
-    #     '';
+            popd
+          }
 
-    #   sha256 = "sha256-fc7NjwRYt9SjFUVOLi/qGiAM8VCaUWRVywfKnDh5lO8=";
-    # };
+          fetchSubprojects ""
+          fetchSubprojects "subprojects/lfi-verifier"
+        '';
+
+      sha256 = "sha256-vFcfMuKnwA+iJ07Q9ThCjnht3w9NaIWFES0Le4/uOWk=";
+    };
 
     nativeBuildInputs = with pkgs; [ meson ninja ];
     buildInputs = with pkgs; [ glibc glibc.static ];

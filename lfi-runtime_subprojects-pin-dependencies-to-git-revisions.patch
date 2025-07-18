@@ -1,0 +1,47 @@
+From b4073ce97446945cc79d26137e67154be4273ac4 Mon Sep 17 00:00:00 2001
+From: Leon Schuermann <leon@is.currently.online>
+Date: Fri, 18 Jul 2025 15:30:32 -0400
+Subject: [PATCH] subprojects: pin dependencies to git revisions
+
+---
+ subprojects/lfiv.wrap      | 2 +-
+ subprojects/libboxmap.wrap | 2 +-
+ subprojects/libmmap.wrap   | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/subprojects/lfiv.wrap b/subprojects/lfiv.wrap
+index f26f9fd..822aa91 100644
+--- a/subprojects/lfiv.wrap
++++ b/subprojects/lfiv.wrap
+@@ -1,5 +1,5 @@
+ [wrap-git]
+ url = https://github.com/lfi-project/lfi-verifier.git
+-revision = master
++revision = 77e3b2d1998d8ce0b516f5113870c5eb4da63245
+ directory = lfi-verifier
+ patch_directory = lfi-verifier
+diff --git a/subprojects/libboxmap.wrap b/subprojects/libboxmap.wrap
+index 0b5a268..2f59990 100644
+--- a/subprojects/libboxmap.wrap
++++ b/subprojects/libboxmap.wrap
+@@ -1,4 +1,4 @@
+ [wrap-git]
+ url = https://github.com/zyedidia/libboxmap.git
+-revision = master
++revision = 8bbb712ad3cb2ba75538ef2ebb90bc9b493891ff
+ directory = libboxmap
+diff --git a/subprojects/libmmap.wrap b/subprojects/libmmap.wrap
+index ef5c019..ff15455 100644
+--- a/subprojects/libmmap.wrap
++++ b/subprojects/libmmap.wrap
+@@ -1,4 +1,4 @@
+ [wrap-git]
+ url = https://github.com/zyedidia/libmmap.git
+-revision = master
++revision = 244381005bd513dc75eea08aff5d798dd956a3aa
+ directory = libmmap
+
+base-commit: 49a562b0dcfcb435123b5025927c3355e447c740
+-- 
+2.49.0
+
