@@ -1,47 +1,36 @@
-From b4073ce97446945cc79d26137e67154be4273ac4 Mon Sep 17 00:00:00 2001
+From e5dafb32c1fe6b4a64961ddaf85d42a26588d6e7 Mon Sep 17 00:00:00 2001
 From: Leon Schuermann <leon@is.currently.online>
-Date: Fri, 18 Jul 2025 15:30:32 -0400
+Date: Tue, 28 Oct 2025 14:23:42 -0400
 Subject: [PATCH] subprojects: pin dependencies to git revisions
 
 ---
- subprojects/lfiv.wrap      | 2 +-
- subprojects/libboxmap.wrap | 2 +-
- subprojects/libmmap.wrap   | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ subprojects/lfi-verifier.wrap | 2 +-
+ subprojects/libelf.wrap       | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/subprojects/lfiv.wrap b/subprojects/lfiv.wrap
-index f26f9fd..822aa91 100644
---- a/subprojects/lfiv.wrap
-+++ b/subprojects/lfiv.wrap
+diff --git a/subprojects/lfi-verifier.wrap b/subprojects/lfi-verifier.wrap
+index f26f9fd..38ff00d 100644
+--- a/subprojects/lfi-verifier.wrap
++++ b/subprojects/lfi-verifier.wrap
 @@ -1,5 +1,5 @@
  [wrap-git]
  url = https://github.com/lfi-project/lfi-verifier.git
 -revision = master
-+revision = 77e3b2d1998d8ce0b516f5113870c5eb4da63245
++revision = 036839440f22e5e0b147a743f9a02ef43e84a0f0
  directory = lfi-verifier
  patch_directory = lfi-verifier
-diff --git a/subprojects/libboxmap.wrap b/subprojects/libboxmap.wrap
-index 0b5a268..2f59990 100644
---- a/subprojects/libboxmap.wrap
-+++ b/subprojects/libboxmap.wrap
+diff --git a/subprojects/libelf.wrap b/subprojects/libelf.wrap
+index bc01be2..1b45e17 100644
+--- a/subprojects/libelf.wrap
++++ b/subprojects/libelf.wrap
 @@ -1,4 +1,4 @@
  [wrap-git]
- url = https://github.com/zyedidia/libboxmap.git
+ url = https://github.com/zyedidia/libelf-bsd.git
 -revision = master
-+revision = 8bbb712ad3cb2ba75538ef2ebb90bc9b493891ff
- directory = libboxmap
-diff --git a/subprojects/libmmap.wrap b/subprojects/libmmap.wrap
-index ef5c019..ff15455 100644
---- a/subprojects/libmmap.wrap
-+++ b/subprojects/libmmap.wrap
-@@ -1,4 +1,4 @@
- [wrap-git]
- url = https://github.com/zyedidia/libmmap.git
--revision = master
-+revision = 244381005bd513dc75eea08aff5d798dd956a3aa
- directory = libmmap
++revision = 1ef42312b21e1af3aeb08d5fd396f278b910b52e
+ directory = libelf
 
-base-commit: 49a562b0dcfcb435123b5025927c3355e447c740
+base-commit: c5b3c77dfd029df0a3bf59d0b24d171d4a324377
 -- 
-2.49.0
+2.50.1
 

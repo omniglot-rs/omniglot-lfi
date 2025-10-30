@@ -1,21 +1,21 @@
+use std::cell::UnsafeCell;
 use std::ffi::{CStr, CString, c_char, c_int};
 use std::marker::{PhantomData, PhantomPinned};
-use std::pin::Pin;
 use std::mem::MaybeUninit;
-use std::cell::UnsafeCell;
+use std::pin::Pin;
 
 use log::{error, info, warn};
 
+use omniglot::abi::calling_convention::{AREG0, AREG1, AREG2, AREG3, AREG4, AREG5, Stacked};
 use omniglot::abi::sysv_amd64::SysVAMD64ABI;
+use omniglot::foreign_memory::og_copy::OGCopy;
 use omniglot::id::OGID;
 use omniglot::markers::{AccessScope, AllocScope};
+use omniglot::rt::sysv_amd64::{SysVAMD64BaseRt, SysVAMD64InvokeRes, SysVAMD64Rt};
 use omniglot::rt::{CallbackContext, CallbackReturn, OGRuntime};
-use omniglot::rt::sysv_amd64::{SysVAMD64Rt, SysVAMD64BaseRt, SysVAMD64InvokeRes};
 use omniglot::{OGError, OGResult};
-use omniglot::abi::calling_convention::{Stacked, AREG0, AREG1, AREG2, AREG3, AREG4, AREG5};
-use omniglot::foreign_memory::og_copy::OGCopy;
 
-use crate::common::{OGLFIAllocTracker};
+use crate::common::OGLFIAllocTracker;
 use crate::liblfi;
 
 struct ForcePin<T> {
@@ -93,6 +93,12 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         AllocScope<'static, <Self as OGRuntime>::AllocTracker<'static>, ID>,
         AccessScope<ID>,
     )> {
+        log::debug!(
+            "Creating new LFI sandbox for LFI library of {} bytes with program name {:?}",
+            lfi_library.len(),
+            &program_name
+        );
+
         // Instantiate the LFI engine, if one does not exist.
         let lfi_linux_lib_init_res: bool = unsafe {
             liblfi::lfi_linux_lib_init(
@@ -102,6 +108,11 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                     verbose: false,
                     no_verify: true,
 
+                    // Don't need compatibility with old rewriters,
+                    // this will become "true" in the future by
+                    // default:
+                    no_rtcall_nullpage: false,
+
                     // Default values:
                     allow_wx: false,
                     no_init_sigaltstack: false,
@@ -110,6 +121,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                 liblfi::LFILinuxOptions {
                     stacksize: 2 * 1024 * 1024,
                     verbose: false,
+                    debug: false,
 
                     // Default values:
                     dir_maps: std::ptr::null_mut(),
@@ -117,6 +129,8 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                     perf: false,
                     sys_passthrough: false,
                     wd: std::ptr::null(),
+                    brk_control: false,
+                    brk_size: 0,
                 },
             )
         };
@@ -124,6 +138,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             log::error!("Failed to initialize liblfi engine");
             return Err(OGError::InternalError);
         }
+        log::trace!("Initialized liblfi engine");
 
         let lfi_proc: *mut liblfi::LFILinuxProc =
             unsafe { liblfi::lfi_proc_new(liblfi::lfi_linux_lib_engine()) };
@@ -131,9 +146,16 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             log::error!("Failed to create LFI proc");
             return Err(OGError::InternalError);
         }
+        log::trace!("Created LFI process: {:p}", lfi_proc);
 
+        let pinned_program_name = Box::pin(ForcePin::new(program_name));
         let lfi_proc_load_res = unsafe {
-            liblfi::lfi_proc_load(lfi_proc, lfi_library.as_ptr() as *mut _, lfi_library.len())
+            liblfi::lfi_proc_load(
+                lfi_proc,
+                lfi_library.as_ptr() as *mut _,
+                lfi_library.len(),
+                pinned_program_name.as_ref().as_ptr(),
+            )
         };
         if !lfi_proc_load_res {
             log::error!("Failed to load LFI library");
@@ -148,7 +170,6 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             return Err(OGError::InternalError);
         }
 
-        let pinned_program_name = Box::pin(ForcePin::new(program_name));
         let pinned_arguments = arguments
             .map(|arg| Box::pin(ForcePin::new(arg)))
             .collect::<Vec<_>>();
@@ -177,43 +198,41 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             return Err(OGError::InternalError);
         }
 
-	let lfi_thread_run_res: c_int = unsafe { liblfi::lfi_thread_run(lfi_thread) };
-	if lfi_thread_run_res != 0 {
-            panic!("lfi_thread_run(lfi_thread = {:p}) returned non-zero value: {}", lfi_thread, lfi_thread_run_res);
-	}
+        let lfi_thread_run_res: c_int = unsafe { liblfi::lfi_thread_run(lfi_thread) };
+        if lfi_thread_run_res != 0 {
+            panic!(
+                "lfi_thread_run(lfi_thread = {:p}) returned non-zero value: {}",
+                lfi_thread, lfi_thread_run_res
+            );
+        }
 
-	// Initialize clone.
-	unsafe { liblfi::lfi_linux_init_clone(lfi_thread) };
+        // Initialize clone.
+        unsafe { liblfi::lfi_linux_init_clone(lfi_thread) };
 
-	let lfi_box: *mut liblfi::LFIBox = unsafe { liblfi::lfi_proc_box(lfi_proc) };
-	let lfi_ctx: *mut liblfi::LFIContext = unsafe { *liblfi::lfi_thread_ctxp(lfi_thread) };
+        let lfi_box: *mut liblfi::LFIBox = unsafe { liblfi::lfi_proc_box(lfi_proc) };
+        let lfi_ctx: *mut liblfi::LFIContext = unsafe { *liblfi::lfi_thread_ctxp(lfi_thread) };
 
-	let id_imprint = id.get_imprint();
+        let id_imprint = id.get_imprint();
 
-        Ok((OGLFISysVAMD64Runtime {
-	    invoke_res_ptr: UnsafeCell::new(std::ptr::null_mut()),
+        Ok((
+            OGLFISysVAMD64Runtime {
+                invoke_res_ptr: UnsafeCell::new(std::ptr::null_mut()),
 
-            id,
+                id,
 
-	    lfi_proc,
-	    lfi_thread,
-	    lfi_box,
-	    lfi_ctx,
+                lfi_proc,
+                lfi_thread,
+                lfi_box,
+                lfi_ctx,
 
-            pinned_program_name,
-            pinned_arguments,
-            pinned_argv,
-            pinned_envp,
-        },
-            unsafe {
-                AllocScope::new(
-                    OGLFIAllocTracker,
-                    id_imprint,
-                )
+                pinned_program_name,
+                pinned_arguments,
+                pinned_argv,
+                pinned_envp,
             },
+            unsafe { AllocScope::new(OGLFIAllocTracker, id_imprint) },
             unsafe { AccessScope::new(id_imprint) },
-
-	))
+        ))
     }
 }
 
@@ -235,44 +254,47 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
         compact_symbol_table: &'static [&'static CStr; SYMTAB_SIZE],
         _fixed_offset_symbol_table: &'static [Option<&'static CStr>; FIXED_OFFSET_SYMTAB_SIZE],
     ) -> Option<Self::SymbolTableState<SYMTAB_SIZE, FIXED_OFFSET_SYMTAB_SIZE>> {
-	// We clone the fixed-size array reference passed above and map on it,
-	// which allows us to avoid using a temporary heap-allocation (possibly
-	// at the expense of high stack usage):
+        // We clone the fixed-size array reference passed above and map on it,
+        // which allows us to avoid using a temporary heap-allocation (possibly
+        // at the expense of high stack usage):
         let mut err: bool = false;
         let symbols = compact_symbol_table.clone().map(|symbol_name| {
             if err {
                 // If we error on one symbol, don't need to loop up others.
                 std::ptr::null()
             } else {
-                let addr: liblfi::lfiptr = unsafe {
-		    liblfi::lfi_proc_sym(
-			self.lfi_proc,
-			symbol_name.as_ptr()
-		    )
-		} as liblfi::lfiptr;
+                let addr: liblfi::lfiptr =
+                    unsafe { liblfi::lfi_proc_sym(self.lfi_proc, symbol_name.as_ptr()) }
+                        as liblfi::lfiptr;
 
-		// Check if the lookup succeeded:
-		if addr != std::ptr::null::<()>() as liblfi::lfiptr {
-		    // Success! Found the symbol.
+                // Check if the lookup succeeded:
+                if addr != std::ptr::null::<()>() as liblfi::lfiptr {
+                    // Success! Found the symbol.
 
-		    // We stuff an lfiptr into a *const (). Make sure it fits!
-		    const _: () = assert!(
-			std::mem::size_of::<liblfi::lfiptr>()
-			    <= std::mem::size_of::<*const ()>()
-		    );
+                    // We stuff an lfiptr into a *const (). Make sure it fits!
+                    const _: () = assert!(
+                        std::mem::size_of::<liblfi::lfiptr>() <= std::mem::size_of::<*const ()>()
+                    );
 
-		    // Cast the pointer, proceed to the next symbol:
-		    let sym = addr as *const ();
+                    // Cast the pointer, proceed to the next symbol:
+                    let sym = addr as *const ();
 
-		    log::debug!("Resolved LFI box symbol with name \"{}\" = {:p}", symbol_name.to_string_lossy(), sym);
-		    sym
-		} else {
+                    log::debug!(
+                        "Resolved LFI box symbol with name \"{}\" = {:p}",
+                        symbol_name.to_string_lossy(),
+                        sym
+                    );
+                    sym
+                } else {
                     // Did not find a library that exposes this symbol:
-		    log::debug!("Failed to resolve LFI box symbol with name \"{}\"", symbol_name.to_string_lossy());
+                    log::debug!(
+                        "Failed to resolve LFI box symbol with name \"{}\"",
+                        symbol_name.to_string_lossy()
+                    );
 
                     err = true;
                     std::ptr::null_mut()
-		}
+                }
             }
         });
 
@@ -338,22 +360,22 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
 
     fn execute<R, F: FnOnce() -> R>(
         &self,
-	target_symbol: *const (),
+        target_symbol: *const (),
         alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
         _access_scope: &mut AccessScope<Self::ID>,
         f: F,
     ) -> R {
-	let mut lfi_ctx = self.lfi_ctx;
+        let mut lfi_ctx = self.lfi_ctx;
 
-	unsafe {
-	    *liblfi::og_lfi_get_threadlocal_invoke_info() = liblfi::LFIInvokeInfo {
-	        ctx: &mut lfi_ctx as *mut _,
-	        targetfn: target_symbol as liblfi::lfiptr,
-	        box_: self.lfi_box,
-	    }
-	};
+        unsafe {
+            *liblfi::og_lfi_get_threadlocal_invoke_info() = liblfi::LFIInvokeInfo {
+                ctx: &mut lfi_ctx as *mut _,
+                targetfn: target_symbol as liblfi::lfiptr,
+                box_: self.lfi_box,
+            }
+        };
 
-	f()
+        f()
     }
 }
 
@@ -397,7 +419,7 @@ macro_rules! invoke_impl_rtloc_register {
 		    // Call the LFI trampoline. The function to invoke has been
 		    // configured just before running this function, as part of
 		    // the Runtime's `execute` hook:
-		    "call [rip - {lfi_trampoline_ptr_sym}]",
+		    "call lfi_trampoline",
 
 		    // Recover the runtime struct pointer from the
 		    // RuntimeThreadState thread-local and save it into a
@@ -421,9 +443,6 @@ macro_rules! invoke_impl_rtloc_register {
 		    // Finally, return to the function-specific wrapper, which
 		    // will perform the return-value encoding:
 		    "ret",
-
-		    // Symbol containing a pointer to the LFI trampoline:
-		    lfi_trampoline_ptr_sym = sym liblfi::lfi_trampoline_addr,
 
 		    // Runtime struct offsets:
 		    rt_invoke_res_ptr_offset = const std::mem::offset_of!(Self, invoke_res_ptr),
@@ -534,7 +553,6 @@ impl<RT: SysVAMD64BaseRt, T> OGLFISysVAMD64InvokeRes<RT, T> {
     }
 }
 
-
 unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64InvokeRes<RT, T> {
     fn new() -> Self {
         // Required invariant by our assembly:
@@ -552,7 +570,7 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
     }
 
     fn into_result_registers(self, _rt: &RT) -> OGResult<OGCopy<T>> {
-	// todo!()
+        // todo!()
 
         self.encode_eferror()?;
 
@@ -607,7 +625,7 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
     }
 
     unsafe fn into_result_stacked(self, _rt: &RT, stacked_res: *mut T) -> OGResult<OGCopy<T>> {
-	todo!()
+        todo!()
 
         // self.encode_eferror()?;
 

@@ -2,7 +2,7 @@
 
 let
   lfi-runtime-git-rev =
-    "49a562b0dcfcb435123b5025927c3355e447c740";
+    "c5b3c77dfd029df0a3bf59d0b24d171d4a324377";
 
   lfi-runtime = pkgs.stdenv.mkDerivation rec {
     pname = "lfi-runtime";
@@ -35,10 +35,12 @@ let
           }
 
           fetchSubprojects ""
+          # Required to work around "patch directory does not exist: libargp" issue
+          mkdir -p "subprojects/lfi-verifier/subprojects/packagefiles/libargp"
           fetchSubprojects "subprojects/lfi-verifier"
         '';
 
-      sha256 = "sha256-vFcfMuKnwA+iJ07Q9ThCjnht3w9NaIWFES0Le4/uOWk=";
+      sha256 = "sha256-/abOAknwwKsaa6wHZQoFGEUUKmmu4YAUo72PKSc8It4=";
     };
 
     nativeBuildInputs = with pkgs; [ meson ninja ];
@@ -52,18 +54,17 @@ in
     name = "omniglot-lfi-devshell";
 
     buildInputs = with pkgs; [
-      # Base dependencies
-      rustup clang pkg-config
-
-      # LFI runtime (liblfi)
+      rustup
       lfi-runtime
     ];
 
-    shellHook = ''
-      # Required for rust-bindgen:
-      export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
+    nativeBuildInputs = with pkgs; [
+      pkg-config
+      clang
+    ];
 
-      # Required for using liblfi:
+    shellHook = ''
+      export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
       export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ lfi-runtime ]}:$LD_LIBRARY_PATH"
     '';
   }

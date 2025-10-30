@@ -53,14 +53,16 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
     let library_path = std::ffi::CString::new(concat!(env!("OUT_DIR"), "/libogadd.so")).unwrap();
 
     let (rt, alloc, access) = omniglot_lfi::amd64::OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
-	&omniglot_lfi::prog::PROG,
-	c"libadd".into(),
-	[].into_iter(),
-	brand,
-    ).unwrap();
+        &omniglot_lfi::prog::PROG,
+        c"libadd".into(),
+        [].into_iter(),
+        brand,
+    )
+    .unwrap();
 
     // Create a "bound" runtime, which implements the LibOGAdd API:
-    let bound_rt = LibOGAddRt::new(rt).expect("Failed to create bound runtime, likely problem with symbol resolution!");
+    let bound_rt = LibOGAddRt::new(rt)
+        .expect("Failed to create bound runtime, likely problem with symbol resolution!");
 
     // Run the provided closure:
     f(bound_rt, alloc, access)
@@ -71,7 +73,13 @@ fn main() {
 
     omniglot::id::lifetime::OGLifetimeBranding::new(|brand| {
         with_lfi_sysv_amd64_rt_lib(brand, |lib, mut alloc, mut access| {
-	    println!("add(1, 2) = {}", lib.add(1, 2, &mut alloc, &mut access).expect("Error executing add function").validate().expect("Error validating returned value"));
+            println!(
+                "add(1, 2) = {}",
+                lib.add(1, 2, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
         });
     });
 }
