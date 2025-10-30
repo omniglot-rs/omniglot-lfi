@@ -1,1 +1,6 @@
+# Ignore Rust compiler outputs:
 /target
+
+# Ignore Nix output symlinks:
+/result
+/result-*
