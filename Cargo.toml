@@ -5,6 +5,9 @@ members = [
     "examples/add",
 ]
 
+[workspace.metadata.crane]
+name = "omniglot-lfi-workspace"
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
