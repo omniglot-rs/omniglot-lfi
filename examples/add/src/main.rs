@@ -53,7 +53,7 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
     let library_path = std::ffi::CString::new(concat!(env!("OUT_DIR"), "/libogadd.so")).unwrap();
 
     let (rt, alloc, access) = omniglot_lfi::amd64::OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
-        &omniglot_lfi::prog::PROG,
+        include_bytes!("../libadd_lfi/libadd.lfi"),
         c"libadd".into(),
         [].into_iter(),
         brand,

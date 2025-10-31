@@ -19,13 +19,13 @@ fn check_output_res(res: std::io::Result<std::process::Output>, msg: &'static st
 }
 
 fn main() {
-    println!("cargo:rerun-if-changed=./ogadd.omniglot.toml");
-    println!("cargo:rerun-if-changed=./c_src/ogadd.h");
+    println!("cargo:rerun-if-changed=./libadd.omniglot.toml");
+    println!("cargo:rerun-if-changed=./libadd_lfi/add.h");
 
     let bindings = bindgen::Builder::default()
-        .header("c_src/ogadd.h")
+        .header("libadd_lfi/add.h")
         .omniglot_configuration_file(Some(
-            PathBuf::from("./ogadd.omniglot.toml")
+            PathBuf::from("./libadd.omniglot.toml")
                 .canonicalize()
                 .unwrap(),
         ))
@@ -57,7 +57,7 @@ fn main() {
     //             OsStr::new("-fPIC"),     // Produce PIC code to support loading as shared lib
     //             OsStr::new("-rdynamic"), // Add all symbols (not just used) to the ELF
     //             OsStr::new("-shared"),   // Produce a shared object
-    //             OsStr::new("c_src/ogadd.c"),
+    //             OsStr::new("libadd_lfi/add.c"),
     //             OsStr::new("-o"),
     //             out_path.join("libogadd.so").as_os_str(),
     //         ])

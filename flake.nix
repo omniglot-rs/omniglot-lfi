@@ -52,8 +52,8 @@
               relPath: type:
               # Include the `c_src` files for the `omniglot-lfi` crate:
               (lib.hasPrefix "omniglot-lfi/c_src" relPath)
-              # Include the `c_src` files for the `add` example:
-              || (lib.hasPrefix "examples/add/c_src" relPath);
+              # Include C header files and compiled artifacts for the `add` example:
+              || (lib.hasPrefix "examples/add/libadd_lfi" relPath);
 
             # Strip "/nix/store/${hash}-source/" prefix:
             trimStorePathPrefix =
