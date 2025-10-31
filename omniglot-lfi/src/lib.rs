@@ -6,7 +6,6 @@ pub mod common;
 mod liblfi;
 
 // use std::ffi::{CStr, c_char, c_int};
-pub mod prog;
 
 // fn lfi_init() {
 //     // Create engine if it does not exist.
