@@ -31,7 +31,7 @@
         pkgs = nixpkgs.legacyPackages."${system}";
         inherit (pkgs) lib;
 
-        lfi-runtime = pkgs.callPackage ./lfi-runtime.nix { };
+        lfi-runtime = pkgs.callPackage ./third-party/lfi-runtime/lfi-runtime.nix { };
 
         rustToolchain = fenix.packages."${system}".fromToolchainFile {
           file = ./rust-toolchain.toml;
