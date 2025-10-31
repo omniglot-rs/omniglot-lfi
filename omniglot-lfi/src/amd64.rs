@@ -4,9 +4,9 @@ use std::marker::{PhantomData, PhantomPinned};
 use std::mem::MaybeUninit;
 use std::pin::Pin;
 
-use log::{error, info, warn};
+use log;
 
-use omniglot::abi::calling_convention::{AREG0, AREG1, AREG2, AREG3, AREG4, AREG5, Stacked};
+use omniglot::abi::calling_convention::{AREG0, AREG1, AREG2, AREG3, AREG4, AREG5};
 use omniglot::abi::sysv_amd64::SysVAMD64ABI;
 use omniglot::foreign_memory::og_copy::OGCopy;
 use omniglot::id::OGID;
@@ -316,8 +316,8 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
 
     fn allocate_stacked_untracked_mut<F, R>(
         &self,
-        requested_layout: core::alloc::Layout,
-        fun: F,
+        _requested_layout: core::alloc::Layout,
+        _fun: F,
     ) -> OGResult<R>
     where
         F: FnOnce(*mut ()) -> R,
@@ -327,9 +327,9 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
 
     fn allocate_stacked_mut<'a, F, R>(
         &self,
-        layout: core::alloc::Layout,
-        alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, ID>,
-        fun: F,
+        _layout: core::alloc::Layout,
+        _alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, ID>,
+        _fun: F,
     ) -> Result<R, OGError>
     where
         F: for<'b> FnOnce(*mut (), &'b mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>) -> R,
@@ -339,9 +339,9 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
 
     fn setup_callback<'a, C, F, R>(
         &self,
-        callback: &'a mut C,
-        alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
-        fun: F,
+        _callback: &'a mut C,
+        _alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
+        _fun: F,
     ) -> OGResult<R>
     where
         C: FnMut(
@@ -361,7 +361,7 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
     fn execute<R, F: FnOnce() -> R>(
         &self,
         target_symbol: *const (),
-        alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
+        _alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
         _access_scope: &mut AccessScope<Self::ID>,
         f: F,
     ) -> R {
@@ -570,8 +570,6 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
     }
 
     fn into_result_registers(self, _rt: &RT) -> OGResult<OGCopy<T>> {
-        // todo!()
-
         self.encode_eferror()?;
 
         // Basic assumptions in this method:
@@ -614,34 +612,28 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
             rdx_bytes[7],
         ];
 
-        // TODO:
-        #[allow(deprecated)]
-        MaybeUninit::copy_from_slice(
-            ret_uninit.as_bytes_mut(),
-            &ret_bytes[..std::mem::size_of::<T>()],
-        );
+        ret_uninit.as_bytes_mut().write_copy_of_slice(
+            &ret_bytes[..std::mem::size_of::<T>()]);
 
         OGResult::Ok(ret_uninit.into())
     }
 
     unsafe fn into_result_stacked(self, _rt: &RT, stacked_res: *mut T) -> OGResult<OGCopy<T>> {
-        todo!()
+        self.encode_eferror()?;
 
-        // self.encode_eferror()?;
+        // Allocate space to construct the final (unvalidated) T from
+        // the register values. During copy, we treat the memory of T
+        // as integers:
+        let mut ret_uninit: MaybeUninit<T> = MaybeUninit::uninit();
 
-        // // Allocate space to construct the final (unvalidated) T from
-        // // the register values. During copy, we treat the memory of T
-        // // as integers:
-        // let mut ret_uninit: MaybeUninit<T> = MaybeUninit::uninit();
+        // Now, we simply do a memcpy from our pointer. We trust the caller that
+        // the provided pointer is allocated, not aliasing any Rust struct, not
+        // being mutated concurrently, and accessible to us. We cast it into a
+        // layout-compatible MaybeUninit pointer:
+        unsafe {
+            std::ptr::copy_nonoverlapping(stacked_res as *const T, ret_uninit.as_mut_ptr(), 1)
+        };
 
-        // // Now, we simply to a memcpy from our pointer. We trust the caller
-        // // that is allocated, non-aliased over any Rust struct, not being
-        // // mutated and accessible to us. We cast it into a layout-compatible
-        // // MaybeUninit pointer:
-        // unsafe {
-        //     std::ptr::copy_nonoverlapping(stacked_res as *const T, ret_uninit.as_mut_ptr(), 1)
-        // };
-
-        // OGResult::Ok(ret_uninit.into())
+        OGResult::Ok(ret_uninit.into())
     }
 }
