@@ -171,6 +171,8 @@
             lfi-runtime
             pkg-config
             clang
+            lldb
+            gdb
           ];
 
           shellHook = ''
