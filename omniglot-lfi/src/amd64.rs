@@ -364,7 +364,7 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
         _alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
         _access_scope: &mut AccessScope<Self::ID>,
         f: F,
-    ) -> R {
+    ) -> OGResult<R> {
         let mut lfi_ctx = self.lfi_ctx;
 
         unsafe {
@@ -375,7 +375,7 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
             }
         };
 
-        f()
+        Ok(f())
     }
 }
 
