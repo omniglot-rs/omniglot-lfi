@@ -612,8 +612,9 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
             rdx_bytes[7],
         ];
 
-        ret_uninit.as_bytes_mut().write_copy_of_slice(
-            &ret_bytes[..std::mem::size_of::<T>()]);
+        ret_uninit
+            .as_bytes_mut()
+            .write_copy_of_slice(&ret_bytes[..std::mem::size_of::<T>()]);
 
         OGResult::Ok(ret_uninit.into())
     }
