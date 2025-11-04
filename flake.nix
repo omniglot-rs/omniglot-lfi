@@ -156,10 +156,10 @@
             ;
         };
 
-        # Check formatting. `nix flake check` also builds all packages:
         checks = {
           formatting = (treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.check self;
-        };
+        }
+        // packages;
 
         formatter = (treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
 
