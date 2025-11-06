@@ -12,7 +12,7 @@
 }:
 
 let
-  lfi-runtime-git-rev = "c5b3c77dfd029df0a3bf59d0b24d171d4a324377";
+  lfi-runtime-git-rev = "6051c56052a8c3db7323252b4f3509e4839669d7";
 
 in
 stdenv.mkDerivation rec {
@@ -53,12 +53,10 @@ stdenv.mkDerivation rec {
       }
 
       fetchSubprojects ""
-      # Required to work around "patch directory does not exist: libargp" issue
-      mkdir -p "subprojects/lfi-verifier/subprojects/packagefiles/libargp"
       fetchSubprojects "subprojects/lfi-verifier"
     '';
 
-    sha256 = "sha256-/abOAknwwKsaa6wHZQoFGEUUKmmu4YAUo72PKSc8It4=";
+    sha256 = "sha256-7POsicb8hzkHzG9e9bajOlAd6LI0r83LgFbKstyANPg=";
   };
 
   nativeBuildInputs = [
