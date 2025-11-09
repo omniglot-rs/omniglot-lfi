@@ -6,7 +6,7 @@ use std::pin::Pin;
 
 use log;
 
-use omniglot::abi::calling_convention::{AREG0, AREG1, AREG2, AREG3, AREG4, AREG5};
+use omniglot::abi::calling_convention::{AREG0, AREG1, AREG2, AREG3, AREG4, AREG5, Stacked};
 use omniglot::abi::sysv_amd64::SysVAMD64ABI;
 use omniglot::foreign_memory::og_copy::OGCopy;
 use omniglot::id::OGID;
@@ -49,6 +49,11 @@ pub struct OGLFISysVAMD64Runtime<ID: OGID> {
     lfi_thread: *mut liblfi::LFILinuxThread,
     lfi_box: *mut liblfi::LFIBox,
     lfi_ctx: *mut liblfi::LFIContext,
+
+    // Pointer to the current LFI context's LFIRegs struct, prepared by the
+    // `execute` hook and valid for the single call to `invoke` within its
+    // callback closure:
+    invoke_lfi_regs_ptr: UnsafeCell<*mut liblfi::LFIRegs>,
 
     // -------------------------------------------------------------------------
     // Pinned objects, pointers to which we pass into the sandbox and
@@ -200,6 +205,8 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                 lfi_box,
                 lfi_ctx,
 
+                invoke_lfi_regs_ptr: UnsafeCell::new(std::ptr::null_mut()),
+
                 pinned_program_name,
                 pinned_arguments,
                 pinned_argv,
@@ -346,13 +353,42 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
 
         unsafe {
             *liblfi::og_lfi_get_threadlocal_invoke_info() = liblfi::LFIInvokeInfo {
+                // TODO: why is this is a double-pointer? Is the inner pointer
+                // expected to change, and if so, when?
                 ctx: &mut lfi_ctx as *mut _,
                 targetfn: target_symbol as liblfi::lfiptr,
                 box_: self.lfi_box,
             }
         };
 
-        Ok(f())
+        // Determine the pointer to the LFIRegs struct from the LFI context,
+        // valid solely for a single function call within the provided callback
+        // closure.
+        //
+        // # Safety
+        //
+        // This value is only accessed in two places, on the same thread,
+        // non-concurrently: here, in this `execute` hook, and within the
+        // `invoke` assembly run as part of the provided closure.
+        unsafe {
+            *self.invoke_lfi_regs_ptr.get() = liblfi::lfi_ctx_regs(self.lfi_ctx);
+        }
+
+        let res = f();
+
+        // Clear the `invoke_lfi_regs_ptr` field, to detect when `invoke` is
+        // incorrectly called outside of this `execute` hook's closure.
+        //
+        // # Safety
+        //
+        // This value is only accessed in two places, on the same thread,
+        // non-concurrently: here, in this `execute` hook, and within the
+        // `invoke` assembly run as part of the provided closure.
+        unsafe {
+            *self.invoke_lfi_regs_ptr.get() = std::ptr::null_mut();
+        }
+
+        Ok(res)
     }
 }
 
@@ -380,103 +416,243 @@ impl CallbackReturn for OGLFISysVAMD64CallbackReturn {
     }
 }
 
-macro_rules! invoke_impl_rtloc_register {
-    ($regtype:ident, $rtloc:expr, $fnptrloc:expr, $resptrloc:expr) => {
-        impl<const STACK_SPILL: usize, ID: OGID>
-            SysVAMD64Rt<STACK_SPILL, $regtype<SysVAMD64ABI>>
+macro_rules! invoke_asm {
+    ($ctx_stack_offset_src:expr, $rtptrloc:expr, $resptrloc:expr $(,)?) => {
+        core::arch::naked_asm!(
+            // When the context arguments are indexed by register offset
+            // instead of on the stack, `ctx_stack_offset` is never used in
+            // this assembly block, which raises a compiler error. Thus, use
+            // it in a comment:
+            "// dummy use of ctx_stack_offset: {ctx_stack_offset}",
+
+            // Push the "invoke result" struct pointer, which we write
+            // the return registers to after returning from the
+            // trampoline:
+            concat!("push ", $resptrloc),
+
+            // Load the runtime struct pointer into a well-known
+            // caller-saved, **non-argument** register (r10). This may
+            // be a simple register--register mov, or a
+            // memory-to-register copy (which is why we can't indirectly
+            // address using $rtptrloc).
+            //
+            // We'll need it after determining the LFIRegs struct
+            // address to copy part of the host stack onto the foreign
+            // library, and after returning from the trampoline to reset
+            // the LFI stack.
+            //
+            // Is it important to use a **non-argument** register here,
+            // as those may contain function arguments that must be
+            // preserved all the way through the call to
+            // `lfi_trampoline`.
+            concat!("mov r10, ", $rtptrloc),
+
+            // We need to copy a part of the host's stack into the
+            // sandbox. Before we do so, we save the current sandbox
+            // stack pointer, and restore it after the sandbox returns.
+            //
+            // To manipulate any of the sandbox state, we need to
+            // retrieve the LFIRegs pointer. The execute hook has
+            // helpfully saved this pointer into the runtime struct, so
+            // we can avoid a function call (and stacking any clobbered
+            // registers here).
+            //
+            // Load the LFIRegs pointer into r10 (caller-saved,
+            // non-argument) and push it onto the stack (we'll need
+            // access to it to restore the original stack pointer, and
+            // it may be overwritten by a nested invoke in a callback):
+            "mov r10, qword ptr [r10 + {rt_invoke_lfi_regs_ptr_offset}]",
+            "push r10",
+            //
+            // Load the current sandbox stack pointer into r11
+            // (caller-saved, non-argument) and save it onto the stack:
+            "mov r11, qword ptr [r10 + {lfiregs_rsp_offset}]",
+            "push r11",
+            //
+            // Now we copy the stacked arguments from the host stack.
+            // For this we need to:
+            //
+            // 1. Subtract bytes occupied by stacked arguments:
+            "sub r11, {stack_spill}",
+            //
+            // 2. If subtraction underflowed (carry is set), return a
+            //    stack overflow error:
+            "jc 150f",
+            //
+            // 3. Align new stack downward to a 16-byte boundary:
+            "and r11, -16",
+            //
+            // 4. Check for stack overflow against stack_bottom:
+            "jmp 200f", // TODO: compare against a "stack_bottom"
+
+            "150:", // ----- STACK OVERFLOW OCCURRED -----
+            //
+            // A stack overflow occurred; we need to report it and
+            // return. Recover the "invoke result" struct pointer:
+            "add rsp, 16", // pop sandbox stack ptr & *mut LFIRegs
+            "pop r11", // pop "invoke result" struct pointer
+            //
+            // Indicate a stack overflow error:
+            "mov qword ptr [r11 + {ir_error_offset}], {ie_stack_overflow_const}",
+            //
+            // Return, which will convert this into an Err(_) result:
+            "ret",
+            //
+            "200:", // ----- NO STACK OVERFLOW -----
+            //
+            // 5. Copy `{stack_spill}` bytes from our current stack
+            //    pointer to the foreign stack.
+            //
+            // Now that we know that the stack pointer fits
+            // `{stack_size}` (we've moved it down by that amount), and
+            // we've aligned it, we can copy `{stack_size}` to it.
+            //
+            // We use the x86 "rep movsq" string-copy instruction
+            // sequence, which is supposed to be fast even for large
+            // copies on recent microarchitectures, and avoids us having
+            // to reason about padding the amount to copy to full
+            // quadwords. It also avoids using a shadow-copy of the rsp
+            // registers, which we can't arbitrarily move outside the
+            // red-zone during the copy operation for signal handling
+            // safety.
+            //
+            // It does however require us to clobber some argument
+            // registers, which we place on the stack:
+            "push rsi",
+            "push rdi",
+            "push rcx",
+            //
+            // Perform the copy. We offset into the stack pointer by 56
+            // bytes (7 quadwords):
+            //
+            // - 8 bytes stacked rcx,
+            // - 8 bytes stacked rdi,
+            // - 8 bytes stacked rsi,
+            // - 8 bytes stacked original sandbox stack pointer,
+            // - 8 bytes stacked LFIRegs pointer,
+            // - 8 bytes stacked "return result" struct pointer,
+            // - 8 bytes stacked return address,
+            //
+            "lea rsi, [rsp + 56]",     // Source
+            "mov rdi, r11",           // Destination
+            "mov rcx, {stack_spill}", // Length
+            "cld",                    // DF = 0, incrementing copy
+            "rep movsb",              // Copy until rcx is 0
+            //
+            // Unstack temporarily stacked registers:
+            "pop rcx",
+            "pop rdi",
+            "pop rsi",
+
+            // Finally, save the updated stack pointer back to the
+            // LFIRegs struct:
+            "mov qword ptr [r10 + {lfiregs_rsp_offset}], r11",
+
+            // Call the LFI trampoline. The function to invoke has been
+            // configured just before running this function, as part of
+            // the Runtime's `execute` hook.
+            //
+            // The stack is properly aligned for this function call at
+            // this point. We entered `invoke` with a half-aligned
+            // stack after a call instruction and pushed 4 quadwords,
+            // making our stack 16-byte aligned.
+            "call lfi_trampoline",
+
+            // Restore the original sandbox pointer.
+            //
+            // First, pop the original sandbox stack pointer itself:
+            "pop r11",
+            //
+            // Then, pop the LFIRegs pointer:
+            "pop r10",
+            //
+            // Write the original sandbox stack pointer to LFIRegs:
+            "mov qword ptr [r10 + {lfiregs_rsp_offset}], r11",
+
+            // Pop the InvokeRes struct pointer from the stack
+            // (overwriting the original sandbox stack pointer, which we
+            // no longer need):
+            "pop r11",
+
+            // Store the function's return value registers. This is
+            // irrespective of whether both registers are used,
+            // initialized, or the function even returned properly. We
+            // save them in `MaybeUninit`s and later determine how to
+            // interpret them, based on whether LFI indicated a
+            // successful function return and the function's signature.
+            "mov qword ptr [r11 + {ir_error_offset}], {ie_no_error_const}",
+            "mov qword ptr [r11 + {ir_rax_offset}], rax", // rax return value
+            "mov qword ptr [r11 + {ir_rdx_offset}], rdx", // rdx return value
+
+            // Finally, return to the function-specific wrapper, which
+            // will perform the return-value encoding:
+            "ret",
+
+            // Amount of bytes to copy to the sandbox stack:
+            stack_spill = const STACK_SPILL,
+
+            // Where the context arguments are located (runtime struct
+            // pointer, etc.), relative to the stack pointer (if they
+            // are stacked):
+            ctx_stack_offset = const $ctx_stack_offset_src,
+
+            // Runtime struct offsets:
+            rt_invoke_lfi_regs_ptr_offset = const std::mem::offset_of!(
+                OGLFISysVAMD64Runtime<ID>, invoke_lfi_regs_ptr),
+
+            // LFIRegs struct offsets:
+            lfiregs_rsp_offset = const std::mem::offset_of!(liblfi::LFIRegs, rsp),
+
+            // InvokeResInner struct offsets:
+            ir_error_offset = const std::mem::offset_of!(OGLFISysVAMD64InvokeResInner, error),
+            ir_rax_offset = const std::mem::offset_of!(OGLFISysVAMD64InvokeResInner, rax),
+            ir_rdx_offset = const std::mem::offset_of!(OGLFISysVAMD64InvokeResInner, rdx),
+
+            // InvokeResError constants:
+            ie_no_error_const = const OGLFISysVAMD64InvokeErr::NoError as usize,
+            ie_stack_overflow_const = const OGLFISysVAMD64InvokeErr::StackOverflow as usize,
+        )
+    }
+
+}
+
+macro_rules! invoke_impl_asm_register_ctx {
+    ($ctxreg:ident, $rtptrloc:expr, $resptrloc:expr $(,)?) => {
+        impl<const STACK_SPILL: usize, ID: OGID> SysVAMD64Rt<STACK_SPILL, $ctxreg<SysVAMD64ABI>>
             for OGLFISysVAMD64Runtime<ID>
         {
             #[unsafe(naked)]
             unsafe extern "C" fn invoke() {
-                core::arch::naked_asm!(
-		    // First, push the invoke res ptr.
-		    //
-		    // The stack was aligned to a 16-byte boundary before this
-		    // function was called, and (with the address pushed on it)
-		    // is now 8-byte aligned (half-aligned). We implicitly
-		    // recover the necessary 16-byte alignment before calling
-		    // the `lfi_trampoline` here.
-		    concat!("push ", $resptrloc),
-
-		    // Call the LFI trampoline. The function to invoke has been
-		    // configured just before running this function, as part of
-		    // the Runtime's `execute` hook:
-		    "call lfi_trampoline",
-
-		    // Pop the InvokeRes struct pointer from the stack:
-		    "pop r12",
-
-		    // Store the function's return value registers. This is
-		    // irrespective of whether both registers are used,
-		    // initialized, or the function even returned properly. We
-		    // save them in `MaybeUninit`s and later determine how to
-		    // interpret them, based on whether LFI indicated a
-		    // successful function return and the function's signature.
-		    "mov qword ptr [r12 + {ir_error_offset}], {ie_no_error_const}",
-                    "mov qword ptr [r12 + {ir_rax_offset}], rax", // rax return value
-	            "mov qword ptr [r12 + {ir_rdx_offset}], rdx", // rdx return value
-
-		    // Finally, return to the function-specific wrapper, which
-		    // will perform the return-value encoding:
-		    "ret",
-
-		    // InvokeResInner struct offsets:
-		    ir_error_offset = const std::mem::offset_of!(OGLFISysVAMD64InvokeResInner, error),
-		    ir_rax_offset = const std::mem::offset_of!(OGLFISysVAMD64InvokeResInner, rax),
-		    ir_rdx_offset = const std::mem::offset_of!(OGLFISysVAMD64InvokeResInner, rdx),
-
-		    // InvokeResError constants:
-		    ie_no_error_const = const OGLFISysVAMD64InvokeErr::NoError as usize,
-               );
+                invoke_asm!(0, $rtptrloc, $resptrloc);
             }
         }
     };
 }
 
-invoke_impl_rtloc_register!(AREG0, "rdi", "rsi", "rdx");
-invoke_impl_rtloc_register!(AREG1, "rsi", "rdx", "rcx");
-invoke_impl_rtloc_register!(AREG2, "rdx", "rcx", "r8");
-invoke_impl_rtloc_register!(AREG3, "rcx", "r8", "r9");
-invoke_impl_rtloc_register!(AREG4, "r8", "r9", "qword ptr [rsp + 8]");
-invoke_impl_rtloc_register!(AREG5, "r9", "[rsp + 8]", "qword ptr [rsp + 16]");
+invoke_impl_asm_register_ctx!(AREG0, "rdi", "rdx");
+invoke_impl_asm_register_ctx!(AREG1, "rsi", "rcx");
+invoke_impl_asm_register_ctx!(AREG2, "rdx", "r8");
+invoke_impl_asm_register_ctx!(AREG3, "rcx", "r9");
+invoke_impl_asm_register_ctx!(AREG4, "r8", "qword ptr [rsp + 8]");
+invoke_impl_asm_register_ctx!(AREG5, "r9", "qword ptr [rsp + 16]");
 
-// impl<const STACK_SPILL: usize, const RT_STACK_OFFSET: usize, ID: OGID>
-//     SysVAMD64Rt<STACK_SPILL, Stacked<RT_STACK_OFFSET, SysVAMD64ABI>> for OGLFISysVAMD64Runtime<ID>
-// {
-//     #[unsafe(naked)]
-//     unsafe extern "C" fn invoke() {
-//         core::arch::naked_asm!(
-// 	    "ud2",
-//             // "
-//             // // This pushes the stack down by {pushed} bytes. We rely on this
-//             // // offset below. ALWAYS UPDATE THEM IN TANDEM.
-//             // push rbx
-//             // push rbp
-//             // push r12
-//             // push r13
-//             // push r14
-//             // push r15
-//             // // BEFORE CHANGING THE ABOVE, DID YOU READ THE COMMENT?
-
-//             // // Load required parameters in non-argument registers and
-//             // // continue execution in the generic protection-domain
-//             // // switch routine:
-//             // mov r10, [rsp + {pushed} + {rt_stack_offset} + 8]  // Load runtime pointer into r10 from stack offset + 8
-//             // mov r11, [rsp + {pushed} + {rt_stack_offset} + 16] // Load function pointer into r11 from stack offset + 16
-//             // mov r12, [rsp + {pushed} + {rt_stack_offset} + 24] // Load the InvokeRes pointer into r12 from stack offset + 24
-//             // mov r13, {stack_spill}                            // Copy the stack-spill immediate into r13
-//             // lea r14, [rip - {invoke_fn}]
-//             // jmp r14
-//             // ",
-//             // stack_spill = const STACK_SPILL,
-//             // rt_stack_offset = const RT_STACK_OFFSET,
-//             // invoke_fn = sym Self::generic_invoke,
-//             // // How many bytes we pushed onto the stack above. This value is also used in
-//             // // generic_invoke. When updating this value, ALSO UPDATE IT IN GENERIC INVOKE.
-//             // pushed = const 48,
-//         );
-//     }
-// }
+impl<const STACK_SPILL: usize, const CTX_STACK_OFFSET: usize, ID: OGID>
+    SysVAMD64Rt<STACK_SPILL, Stacked<{ CTX_STACK_OFFSET }, SysVAMD64ABI>>
+    for OGLFISysVAMD64Runtime<ID>
+{
+    #[unsafe(naked)]
+    unsafe extern "C" fn invoke() {
+        invoke_asm!(
+            CTX_STACK_OFFSET,
+            // This "runtime struct" pointer is offset by 8 more bytes than it
+            // should be, because it is loaded after a "push" instruction to
+            // save the "return struct" pointer:
+            "qword ptr [rsp + {ctx_stack_offset} + 16]",
+            // Return struct pointer, at the correct address:
+            "qword ptr [rsp + {ctx_stack_offset} + 24]",
+        );
+    }
+}
 
 impl<ID: OGID> SysVAMD64BaseRt for OGLFISysVAMD64Runtime<ID> {
     type InvokeRes<T> = OGLFISysVAMD64InvokeRes<Self, T>;
@@ -486,6 +662,7 @@ impl<ID: OGID> SysVAMD64BaseRt for OGLFISysVAMD64Runtime<ID> {
 enum OGLFISysVAMD64InvokeErr {
     NoError,
     NotCalled,
+    StackOverflow,
 }
 
 // Depending on the size of the return value, it will be either passed
@@ -516,6 +693,8 @@ impl<RT: SysVAMD64BaseRt, T> OGLFISysVAMD64InvokeRes<RT, T> {
                 "Attempted to use / query {} without it being used by an invoke call!",
                 std::any::type_name::<Self>()
             ),
+
+            OGLFISysVAMD64InvokeErr::StackOverflow => Err(OGError::StackOverflow),
 
             OGLFISysVAMD64InvokeErr::NoError => Ok(()),
         }

@@ -341,7 +341,7 @@ dependencies = [
 [[package]]
 name = "omniglot"
 version = "0.1.0"
-source = "git+https://github.com/omniglot-rs/omniglot?rev=d5b58f7913b2afd55c4db9c45b97cb947900bb4e#d5b58f7913b2afd55c4db9c45b97cb947900bb4e"
+source = "git+https://github.com/omniglot-rs/omniglot?rev=b3c5ef8e1e40e2a466e926bcac1d989021833e38#b3c5ef8e1e40e2a466e926bcac1d989021833e38"
 dependencies = [
  "seq-macro",
 ]
