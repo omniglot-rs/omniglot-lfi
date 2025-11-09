@@ -40,31 +40,8 @@ impl<T> std::ops::Deref for ForcePin<T> {
     }
 }
 
-#[thread_local]
-static mut RUNTIME_THREAD_STATE: OGLFISysVAMD64RuntimeThreadState =
-    OGLFISysVAMD64RuntimeThreadState::new();
-
-struct OGLFISysVAMD64RuntimeThreadState {
-    runtime: *const (),
-}
-
-impl OGLFISysVAMD64RuntimeThreadState {
-    const fn new() -> Self {
-        OGLFISysVAMD64RuntimeThreadState {
-            runtime: std::ptr::null(),
-        }
-    }
-}
-
 #[repr(C)]
 pub struct OGLFISysVAMD64Runtime<ID: OGID> {
-    // -------------------------------------------------------------------------
-    // Temporary values saved and restored in the `invoke` trampolines:
-    //
-    // Scratch-space to store the InvokeRes pointer for encoding the function's
-    // return value while executing foreign code:
-    invoke_res_ptr: UnsafeCell<*mut OGLFISysVAMD64InvokeResInner>,
-
     // -------------------------------------------------------------------------
     // Misc state:
     id: ID,
@@ -216,8 +193,6 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
 
         Ok((
             OGLFISysVAMD64Runtime {
-                invoke_res_ptr: UnsafeCell::new(std::ptr::null_mut()),
-
                 id,
 
                 lfi_proc,
@@ -414,27 +389,22 @@ macro_rules! invoke_impl_rtloc_register {
             #[unsafe(naked)]
             unsafe extern "C" fn invoke() {
                 core::arch::naked_asm!(
-		    // First, save the invoke res pointer into the runtime
-		    // struct:
-		    concat!("mov qword ptr [", $rtloc, " + {rt_invoke_res_ptr_offset}], ", $resptrloc),
-
-		    // Then, save the runtime pointer into the
-		    // RuntimeThreadState thread-local:
-                    concat!("mov qword ptr fs:[{rths_static_sym}@TPOFF + {rths_runtime_offset}], ", $rtloc),
+		    // First, push the invoke res ptr.
+		    //
+		    // The stack was aligned to a 16-byte boundary before this
+		    // function was called, and (with the address pushed on it)
+		    // is now 8-byte aligned (half-aligned). We implicitly
+		    // recover the necessary 16-byte alignment before calling
+		    // the `lfi_trampoline` here.
+		    concat!("push ", $resptrloc),
 
 		    // Call the LFI trampoline. The function to invoke has been
 		    // configured just before running this function, as part of
 		    // the Runtime's `execute` hook:
 		    "call lfi_trampoline",
 
-		    // Recover the runtime struct pointer from the
-		    // RuntimeThreadState thread-local and save it into a
-		    // caller-saved register, `r10`:
-		    "mov r10, qword ptr fs:[{rths_static_sym}@TPOFF + {rths_runtime_offset}]",
-
-		    // Recover the InvokeRes struct pointer from the runtime
-		    // struct, and save it into a caller-saved register `r12`:
-		    "mov r12, qword ptr [r10 + {rt_invoke_res_ptr_offset}]",
+		    // Pop the InvokeRes struct pointer from the stack:
+		    "pop r12",
 
 		    // Store the function's return value registers. This is
 		    // irrespective of whether both registers are used,
@@ -449,13 +419,6 @@ macro_rules! invoke_impl_rtloc_register {
 		    // Finally, return to the function-specific wrapper, which
 		    // will perform the return-value encoding:
 		    "ret",
-
-		    // Runtime struct offsets:
-		    rt_invoke_res_ptr_offset = const std::mem::offset_of!(Self, invoke_res_ptr),
-
-		    // RuntimeThreadState symbol and struct offsets:
-		    rths_static_sym = sym RUNTIME_THREAD_STATE,
-		    rths_runtime_offset = const std::mem::offset_of!(OGLFISysVAMD64RuntimeThreadState, runtime),
 
 		    // InvokeResInner struct offsets:
 		    ir_error_offset = const std::mem::offset_of!(OGLFISysVAMD64InvokeResInner, error),
@@ -474,8 +437,8 @@ invoke_impl_rtloc_register!(AREG0, "rdi", "rsi", "rdx");
 invoke_impl_rtloc_register!(AREG1, "rsi", "rdx", "rcx");
 invoke_impl_rtloc_register!(AREG2, "rdx", "rcx", "r8");
 invoke_impl_rtloc_register!(AREG3, "rcx", "r8", "r9");
-invoke_impl_rtloc_register!(AREG4, "r8", "r9", "[rsp + 8]");
-invoke_impl_rtloc_register!(AREG5, "r9", "[rsp + 8]", "[rsp + 16]");
+invoke_impl_rtloc_register!(AREG4, "r8", "r9", "qword ptr [rsp + 8]");
+invoke_impl_rtloc_register!(AREG5, "r9", "[rsp + 8]", "qword ptr [rsp + 16]");
 
 // impl<const STACK_SPILL: usize, const RT_STACK_OFFSET: usize, ID: OGID>
 //     SysVAMD64Rt<STACK_SPILL, Stacked<RT_STACK_OFFSET, SysVAMD64ABI>> for OGLFISysVAMD64Runtime<ID>
