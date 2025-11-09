@@ -1,5 +1,5 @@
 use std::cell::UnsafeCell;
-use std::ffi::{CStr, CString, c_char, c_int};
+use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::marker::{PhantomData, PhantomPinned};
 use std::mem::MaybeUninit;
 use std::pin::Pin;
@@ -253,13 +253,15 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
         &self,
         compact_symbol_table: &'static [&'static CStr; SYMTAB_SIZE],
         _fixed_offset_symbol_table: &'static [Option<&'static CStr>; FIXED_OFFSET_SYMTAB_SIZE],
-    ) -> Option<Self::SymbolTableState<SYMTAB_SIZE, FIXED_OFFSET_SYMTAB_SIZE>> {
+    ) -> Result<Self::SymbolTableState<SYMTAB_SIZE, FIXED_OFFSET_SYMTAB_SIZE>, Option<&'static CStr>>
+    {
+        let mut missing_symbol = None;
+
         // We clone the fixed-size array reference passed above and map on it,
         // which allows us to avoid using a temporary heap-allocation (possibly
         // at the expense of high stack usage):
-        let mut err: bool = false;
         let symbols = compact_symbol_table.clone().map(|symbol_name| {
-            if err {
+            if missing_symbol.is_some() {
                 // If we error on one symbol, don't need to loop up others.
                 std::ptr::null()
             } else {
@@ -292,16 +294,16 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
                         symbol_name.to_string_lossy()
                     );
 
-                    err = true;
+                    missing_symbol = Some(symbol_name);
                     std::ptr::null_mut()
                 }
             }
         });
 
-        if err {
-            None
+        if let Some(s) = missing_symbol {
+            Err(Some(s))
         } else {
-            Some(OGLFISysVAMD64SymbolTable { symbols })
+            Ok(OGLFISysVAMD64SymbolTable { symbols })
         }
     }
 
@@ -387,6 +389,10 @@ pub struct OGLFISysVAMD64SymbolTable<const SYMTAB_SIZE: usize> {
 pub struct OGLFISysVAMD64CallbackContext;
 impl CallbackContext for OGLFISysVAMD64CallbackContext {
     fn get_argument_register(&self, _: usize) -> Option<usize> {
+        todo!()
+    }
+
+    fn get_stack_pointer(&self) -> *mut c_void {
         todo!()
     }
 }
