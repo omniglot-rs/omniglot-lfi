@@ -1,0 +1,14 @@
+[package]
+name = "omniglot-lfi-tests"
+version.workspace = true
+edition = "2021"
+
+[build-dependencies]
+bindgen.workspace = true
+
+[dependencies]
+omniglot.workspace = true
+omniglot-lfi = { path = "../omniglot-lfi" }
+env_logger = "0.11.8"
+seq-macro = "0.3.6"
+paste = "1.0.15"

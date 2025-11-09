@@ -52,6 +52,8 @@
               relPath: type:
               # Include the `c_src` files for the `omniglot-lfi` crate:
               (lib.hasPrefix "omniglot-lfi/c_src" relPath)
+              # Include C header files and compiled artifacts for the `tests` crate:
+              || (lib.hasPrefix "tests/liboglfitests_lfi" relPath)
               # Include C header files and compiled artifacts for the `add` example:
               || (lib.hasPrefix "examples/add/libadd_lfi" relPath);
 
@@ -81,10 +83,9 @@
         # can reuse all of that work (e.g. via cachix) when running in CI:
         cargoArtifacts = craneLib.buildDepsOnly baseRustBuildArgs;
 
-        # Common arguments shared across all individual targets:
-        individualCrateArgs = baseRustBuildArgs // {
-          inherit cargoArtifacts;
-
+        # Common arguments for all packages that depend on LFI and/or
+        # rust-bindgen:
+        lfiBindgenBuildArgs = {
           buildInputs = with pkgs; [
             lfi-runtime
 
@@ -102,11 +103,19 @@
           ];
 
           LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
-
-          # TODO: run all tests via cargo-nextest, as per crane's documentation:
-          # https://crane.dev/examples/quick-start-workspace.html
-          doCheck = false;
         };
+
+        # Common arguments shared across all individual targets:
+        individualCrateArgs =
+          baseRustBuildArgs
+          // lfiBindgenBuildArgs
+          // {
+            inherit cargoArtifacts;
+
+            # Run all tests via cargo-nextest, as per crane's documentation:
+            # https://crane.dev/examples/quick-start-workspace.html
+            doCheck = false;
+          };
 
         # Ideally we'd like to avoid rebuilding unchanged
         # packages, and thus only include the sources necessary
@@ -147,6 +156,22 @@
           }
         );
 
+        # Run tests with cargo-nextest. We set `doCheck = false` on
+        # other crate derivations so we do not the tests twice.
+        omniglot-lfi-workspace-nextest = craneLib.cargoNextest (
+          baseRustBuildArgs
+          // lfiBindgenBuildArgs
+          // {
+            inherit cargoArtifacts;
+            partitions = 1;
+            partitionType = "count";
+            cargoNextestPartitionsExtraArgs = "--no-tests=pass";
+
+            # Otherwise, nextest can't find `liblfi.so`:
+            LD_LIBRARY_PATH = lib.makeLibraryPath [ lfi-runtime ];
+          }
+        );
+
       in
       rec {
         packages = {
@@ -159,6 +184,7 @@
 
         checks = {
           formatting = (treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.check self;
+          inherit omniglot-lfi-workspace-nextest;
         }
         // packages;
 
