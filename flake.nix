@@ -152,6 +152,7 @@
         packages = {
           inherit
             lfi-runtime
+            omniglot-lfi
             omniglot-lfi-example-add
             ;
         };
