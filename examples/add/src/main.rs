@@ -54,6 +54,62 @@ fn main() {
                     .validate()
                     .expect("Error validating returned value")
             );
+
+            println!(
+                "add(1, 2, 3) = {}",
+                lib.add3(1, 2, 3, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
+
+            println!(
+                "add(1, 2, 3, 4) = {}",
+                lib.add4(1, 2, 3, 4, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
+
+            println!(
+                "add(1, 2, 3, 4, 5) = {}",
+                lib.add5(1, 2, 3, 4, 5, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
+
+            println!(
+                "add(1, 2, 3, 4, 5, 6) = {}",
+                lib.add6(1, 2, 3, 4, 5, 6, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
+
+            println!(
+                "add(1, 2, 3, 4, 5, 6, 7) = {}",
+                lib.add7(1, 2, 3, 4, 5, 6, 7, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
+
+            println!(
+                "add(1, 2, 3, 4, 5, 6, 7, 8) = {}",
+                lib.add8(1, 2, 3, 4, 5, 6, 7, 8, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
+
+            println!(
+                "add(1, 2, 3, 4, 5, 6, 7, 8, 9) = {}",
+                lib.add9(1, 2, 3, 4, 5, 6, 7, 8, 9, &mut alloc, &mut access)
+                    .expect("Error executing add function")
+                    .validate()
+                    .expect("Error validating returned value")
+            );
         });
     });
 }

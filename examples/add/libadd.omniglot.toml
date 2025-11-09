@@ -2,3 +2,25 @@ wrapper_name = "LibOGAdd"
 
 [functions.add]
 fntab_id = 0
+
+[functions.add3]
+fntab_id = 1
+
+[functions.add4]
+fntab_id = 2
+
+[functions.add5]
+fntab_id = 3
+
+[functions.add6]
+fntab_id = 4
+
+[functions.add7]
+fntab_id = 5
+
+[functions.add8]
+fntab_id = 6
+
+[functions.add9]
+fntab_id = 7
+

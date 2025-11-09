@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 fn main() {
     println!("cargo:rerun-if-changed=./libadd.omniglot.toml");
-    println!("cargo:rerun-if-changed=./libadd_lfi/add.h");
+    println!("cargo:rerun-if-changed=./libadd_lfi");
 
     let bindings = bindgen::Builder::default()
         .header("libadd_lfi/add.h")
