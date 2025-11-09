@@ -1,4 +1,4 @@
-use std::cell::UnsafeCell;
+use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::marker::{PhantomData, PhantomPinned};
 use std::mem::MaybeUninit;
@@ -55,13 +55,42 @@ macro_rules! lossless_as {
     };
 }
 
-lossless_as!(lossless_usize_to_u64, usize, u64);
 lossless_as!(lossless_c_void_ptr_to_u64, *mut c_void, u64);
-lossless_as!(lossless_usize_to_c_void_ptr, usize, *mut c_void);
+lossless_as!(lossless_u64_to_c_void_ptr, u64, *mut c_void);
 lossless_as!(lossless_u64_to_unit_ptr, u64, *mut ());
+lossless_as!(lossless_u64_to_usize, u64, usize);
+lossless_as!(lossless_usize_to_c_void_ptr, usize, *mut c_void);
+lossless_as!(lossless_usize_to_u64, usize, u64);
 
 #[repr(C)]
 pub struct OGLFISysVAMD64Runtime<ID: OGID> {
+    // -------------------------------------------------------------------------
+    // Thread-local state.
+    //
+    // The distinction between thread-local and global state
+    // is moot, as this struct is !Sync, so everything in here is only
+    // accessible to a single thread. But, if this were a multi-threaded
+    // runtime, then this state would need to be kept in a thread-local data
+    // structure:
+
+    // When a callback unwinds, this will be set to the panic payload as
+    // captured by `catch_unwind`. It will be promoted back to a proper panic
+    // after exiting LFI:
+    callback_panic_object: RefCell<Option<Box<dyn std::any::Any + Send + 'static>>>,
+
+    // The current head of the `AllocChain` list, at the time of the last
+    // `execute` call.
+    //
+    // This will be set to the address of the `AllocChain` head element by the
+    // `execute` hook, and then used to construct a new `AllocScope` when
+    // invoking callbacks. By requiring a unique (`&mut`) reference to the
+    // `AllocScope` for invoking any foreign functions, and using this latest
+    // reference for any callbacks, we ensure that callers have access to
+    // exactly one `AllocScope` and this always references the latest, "longest"
+    // `AllocChain` head element, regardless of when the callback was
+    // registered.
+    callback_alloc_chain_head: Cell<*const ()>,
+
     // -------------------------------------------------------------------------
     // Misc state:
     id: ID,
@@ -227,6 +256,9 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         Ok((
             OGLFISysVAMD64Runtime {
                 id,
+
+                callback_panic_object: RefCell::new(None),
+                callback_alloc_chain_head: Cell::new(std::ptr::null_mut()),
 
                 lfi_proc,
                 lfi_thread,
@@ -423,9 +455,9 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
 
     fn setup_callback<'a, C, F, R>(
         &self,
-        _callback: &'a mut C,
-        _alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
-        _fun: F,
+        mut callback: &'a mut C,
+        alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
+        fun: F,
     ) -> OGResult<R>
     where
         C: FnMut(
@@ -439,13 +471,235 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
             &'b mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
         ) -> R,
     {
-        todo!()
+        use closure_ffi::BareFnMut;
+
+        let lfi_callback_handler = BareFnMut::new_c(|| {
+            // Extract the argument registers and current foreign stack pointer
+            // from LFIRegs. Within the callback, we may invoke other LFI
+            // functions to modify these registers. Thus we don't let the
+            // `&LFIRegs` reference live beyond invocations of the `callback`:
+            let callback_context = {
+                let lfi_regs_ptr = unsafe { liblfi::lfi_ctx_regs(self.lfi_ctx) };
+
+                // Sanity check: returned pointer must not be null. We must not
+                // unwind into any C stack frames below us, so terminate the
+                // process should this invariant be violated:
+                if lfi_regs_ptr == std::ptr::null_mut() {
+                    std::process::abort();
+                }
+
+                // Create a short-lived reference to extract the argument
+                // registers and stack pointer:
+                let lfi_regs: &liblfi::LFIRegs = unsafe { &*lfi_regs_ptr };
+
+                // Copy the callback context:
+                OGLFISysVAMD64CallbackContext {
+                    arg_regs: [
+                        lossless_u64_to_usize(lfi_regs.rdi),
+                        lossless_u64_to_usize(lfi_regs.rsi),
+                        lossless_u64_to_usize(lfi_regs.rdx),
+                        lossless_u64_to_usize(lfi_regs.rcx),
+                        lossless_u64_to_usize(lfi_regs.r8),
+                        lossless_u64_to_usize(lfi_regs.r9),
+                    ],
+                    stack_ptr: lossless_u64_to_c_void_ptr(lfi_regs.rsp),
+                }
+            };
+
+            // Re-create an `AllocScope` to pass into the user-provided
+            // callback.
+            //
+            // The latest `execute` call to hand of control to LFI has stored a
+            // pointer to the `AllocChain`'s head element in
+            // `self.callback_alloc_chain_head`. It also holds a shared borrow
+            // of this element throughout the entire time that this callback can
+            // execute. We can thus safely use it to construct another
+            // `AllocChain` element extending this chain, with a smaller
+            // lifetime than the original `AllocScope` captured by `execute`.
+            //
+            // We construct the actual `AllocScope within the `catch_unwind`
+            // closure (because `AllocScope` is not `UnwindSafe`), but can't
+            // move `self` into that closure either, so extract the current
+            // `AllocChain` head element pointer here.
+            let execute_hook_alloc_chain_head: &AllocChain<'_> =
+                unsafe { &*(self.callback_alloc_chain_head.get() as *const AllocChain<'_>) };
+
+            // The user-provided callback may panic, which is problematic.
+            //
+            // First, we cannot simply unwind through the library: nothing
+            // guarantees us that it is compiled with an unwind-compatible ABI,
+            // and it cannot be trusted in general. And even if we had valid
+            // values to return to the library, we couldn't trust it to continue
+            // unwinding back into Rust code.
+            //
+            // This is an issue, because when the callback unwinds, it may have
+            // left shared, observable memory in a logically inconsistent
+            // state. When returning back to the original caller, it could then
+            // observe this state.
+            //
+            // We solve these issues by catching unwinds instead of forwarding
+            // them to the library, aborting LFI execution and returning back to
+            // the `generic_invoke` trampoline. That then checks a flag to
+            // indicate whether an unwind occurred and re-raises a panic. This
+            // way we prevent user-code from running again, and can accept
+            // callbacks that are not `UnwindSafe`.
+            //
+            // We capture a `&mut &mut FnMut` here. The double-indirection is
+            // necessary to avoid Rust inferring a move of the inner callback
+            // reference by this `BareFnMut::new_c` closure, and thus turning it
+            // into an `FnOnce`. We can then move ownership of this outer
+            // reference into the `catch_unwind` FnOnce closure.
+            let unwind_safe_callback = std::panic::AssertUnwindSafe(&mut callback);
+
+            // TODO: reason about safety, maybe we want to place an `UnwindSafe`
+            // bound on this ID type?
+            let unwind_safe_id_imprint = std::panic::AssertUnwindSafe(self.id.get_imprint());
+
+            let cb_unwind_res = std::panic::catch_unwind(move || {
+                // Required to move the `AssertUnwindSafe`s itself and not
+                // the contained values:
+                let unwind_safe_callback: std::panic::AssertUnwindSafe<_> = unwind_safe_callback;
+                let unwind_safe_id_imprint = unwind_safe_id_imprint;
+
+                // Create a new `AllocScope` that extends the `AllocChain` held
+                // by the execute hook. This is the only accessible alloc scope
+                // to the user: to be able to invoke this callback they must
+                // have provided unique ownership of the previous one to
+                // `execute` for the duration that this callback can possibly be
+                // executed.
+                let mut alloc_scope: AllocScope<'_, AllocChain<'_>, ID> = unsafe {
+                    AllocScope::new(
+                        AllocChain::Cons(execute_hook_alloc_chain_head),
+                        unwind_safe_id_imprint.0,
+                    )
+                };
+
+                // This is the only accessible access scope to the user. To be
+                // able to invoke this callback they must have provided unique
+                // ownership of the previous one to `execute` for the duration
+                // that this callback can possibly be executed.
+                let mut access_scope = unsafe { AccessScope::<ID>::new(unwind_safe_id_imprint.0) };
+
+                // The callback can write return values this struct, which will
+                // be copied into the LFIRegs, assuming the callback doesn't
+                // unwind:
+                let mut callback_ret = OGLFISysVAMD64CallbackReturn { ret_regs: [0; 2] };
+
+                unwind_safe_callback.0(
+                    &callback_context,
+                    &mut callback_ret,
+                    &mut alloc_scope,
+                    &mut access_scope,
+                );
+
+                callback_ret
+            });
+
+            match cb_unwind_res {
+                Ok(cb_ret_context) => {
+                    // Copy the callback return context back into the LFIRegs:
+                    let lfi_regs_ptr = unsafe { liblfi::lfi_ctx_regs(self.lfi_ctx) };
+
+                    // Sanity check: returned pointer must not be null. We must not
+                    // unwind into any C stack frames below us, so terminate the
+                    // process should this invariant be violated:
+                    if lfi_regs_ptr == std::ptr::null_mut() {
+                        std::process::abort();
+                    }
+
+                    // Create a short-lived reference to extract the argument
+                    // registers and stack pointer:
+                    let lfi_regs: &mut liblfi::LFIRegs = unsafe { &mut *lfi_regs_ptr };
+                    lfi_regs.rax = lossless_usize_to_u64(cb_ret_context.ret_regs[0]);
+                    lfi_regs.rdx = lossless_usize_to_u64(cb_ret_context.ret_regs[1]);
+
+                    // Good to return to LFI!
+                }
+                Err(panic_object) => {
+                    // Callback unwound. We must not let the LFI sandbox run (as
+                    // it might invoke another callback, which would then have
+                    // access to the potentially inconsistent state left behind
+                    // by the callback which may not be unwind-safe), and will
+                    // re-raise this panic once we unwind the LFI stack.
+
+                    // Record the panic object, so we can later resume the stack
+                    // unwinding.
+                    //
+                    // The `callback_panic_object` maintains two invariants:
+                    //
+                    // - this variable should only be accessed briefly, in a
+                    //   non-rentrant fashin, when inserting a value in this
+                    //   function, or removing one upon returning from the LFI
+                    //   trampoline.
+                    //
+                    // - the Option should only be occupied when aborting the
+                    //   LFI callback, and must cleared immediately afterwards,
+                    //   so we can expect it to be empty here.
+                    //
+                    // We assert these invariants here but must not use a
+                    // panicing assert! or unwrap. Instead, we abort the process
+                    // should these invariants be violated.
+                    if let Ok(mut cpo) = self.callback_panic_object.try_borrow_mut() {
+                        if cpo.is_some() {
+                            // Panic object is non-empty, invariant violated:
+                            std::process::abort();
+                        } else {
+                            *cpo = Some(panic_object);
+                        }
+                    } else {
+                        // Value is currently borrowed, invariant violated:
+                        std::process::abort();
+                    }
+
+                    // `lfi_ctx_abort_cb` will ensure that, once this callback
+                    // handler returns, LFI will immediately return to the
+                    // `lfi_trampoline` invocation without executing any sandbox
+                    // code.
+                    unsafe {
+                        liblfi::lfi_ctx_abort_callback(self.lfi_ctx);
+                    }
+                }
+            }
+        })
+        .into_untyped();
+
+        // Register the callback with LFI, and ensure that before invoking this
+        // callback, LFI saves argument registers and the current LFI stack to
+        // the LFIRegs struct, and uses it to restore the return regs before
+        // switching back to sandbox code.
+        let lfi_cb_ptr = unsafe {
+            liblfi::lfi_box_register_cb_struct(
+                self.lfi_box,
+                lfi_callback_handler.bare() as *mut c_void,
+            )
+        };
+        if lfi_cb_ptr == std::ptr::null_mut() {
+            // Returns NULL if there are no more callback slots available or if
+            // callback initialization failed.
+            //
+            // Returning early will deallocate the BareFnMut callback as well.
+            return Err(OGError::SetupCallbackInsufficientSlots);
+        }
+
+        // The callback has been successfully allocated, run the provided
+        // closure:
+        let res = fun(lfi_cb_ptr as *const _, alloc_scope);
+
+        // These callbacks are setup as a virtual "stack"; deallocate them
+        // when the above closure returns:
+        unsafe { liblfi::lfi_box_unregister_cb(self.lfi_box, lfi_cb_ptr) };
+
+        // Ensure that `lfi_callback_handler` lives past the `fun` callback invocation.
+        core::mem::drop(lfi_callback_handler);
+
+        // Finally, return the closure's result:
+        Ok(res)
     }
 
     fn execute<R, F: FnOnce() -> R>(
         &self,
         target_symbol: *const (),
-        _alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
+        alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>,
         _access_scope: &mut AccessScope<Self::ID>,
         f: F,
     ) -> OGResult<R> {
@@ -474,7 +728,32 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
             *self.invoke_lfi_regs_ptr.get() = liblfi::lfi_ctx_regs(self.lfi_ctx);
         }
 
+        // Store a pointer to the current `AllocChain` head element, to be used
+        // to reconstruct an `AllocScope` for invoking callback functions.
+        //
+        // The current `AllocScope` owns this current `AllocChain` element, and
+        // we have a unique reference to the `AllocScope`. In the callback
+        // handler, however, we create a new `AllocScope` with a new
+        // `AllocChain` that itself holds a shared reference to this struct. By
+        // taking another "dummy" shared reference here in this function, and
+        // using this reference across the `f()` closure (which has a strictly
+        // greater lifetime than any callback's `AllocScope` that could
+        // transitively hold another shared reference to the contained
+        // `AllocChain` element, we rule out any mutable aliasing.
+        let alloc_chain_head: &AllocChain<'_> = alloc_scope.tracker();
+        self.callback_alloc_chain_head
+            .set(alloc_chain_head as *const AllocChain<'_> as *const _);
+
         let res = f();
+
+        // Ensure that `alloc_chain_head` exists througout the `f()` closure
+        // invocation, as we'll be creating further shared references to its
+        // pointee over the duration of `f()`. This ensures that there cannot be
+        // a concurrent mutable borrow that would introduce mutable aliasing:
+        //
+        // The `black_box` may not be required, it may be sufficient to simply
+        // assign it via the `let _` binding.
+        let _ = std::hint::black_box(alloc_chain_head);
 
         // Clear the `invoke_lfi_regs_ptr` field, to detect when `invoke` is
         // incorrectly called outside of this `execute` hook's closure.
@@ -488,6 +767,26 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
             *self.invoke_lfi_regs_ptr.get() = std::ptr::null_mut();
         }
 
+        // Before handing control back to user code, check whether we've had a
+        // callback unwind. In that case, we must resume unwinding before
+        // executing any user code.
+        let mut cpo = self.callback_panic_object.borrow_mut();
+
+        // Important to remove the object here, as we may still unwind through
+        // another nested callback:
+        let panic_object = cpo.take();
+
+        // We cross-check our own bookkeeping with LFIs:
+        if panic_object.is_some() ^ unsafe { liblfi::lfi_ctx_abort_status(self.lfi_ctx) } {
+            panic!("Inconsistent `callback_panic_object` and `lfi_ctx_abort_status`");
+        }
+
+        // If we have a panic object, re-raise it:
+        if let Some(po) = panic_object {
+            std::panic::resume_unwind(po);
+        }
+
+        // No panic, return the result of the invoke function:
         Ok(res)
     }
 }
@@ -497,22 +796,35 @@ pub struct OGLFISysVAMD64SymbolTable<const SYMTAB_SIZE: usize> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct OGLFISysVAMD64CallbackContext;
+pub struct OGLFISysVAMD64CallbackContext {
+    arg_regs: [usize; 6],
+    stack_ptr: *mut c_void,
+}
+
 impl CallbackContext for OGLFISysVAMD64CallbackContext {
-    fn get_argument_register(&self, _: usize) -> Option<usize> {
-        todo!()
+    #[inline(always)]
+    fn get_argument_register(&self, idx: usize) -> Option<usize> {
+        self.arg_regs.get(idx).copied()
     }
 
+    #[inline(always)]
     fn get_stack_pointer(&self) -> *mut c_void {
-        todo!()
+        self.stack_ptr
     }
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct OGLFISysVAMD64CallbackReturn;
+pub struct OGLFISysVAMD64CallbackReturn {
+    ret_regs: [usize; 2],
+}
 impl CallbackReturn for OGLFISysVAMD64CallbackReturn {
-    fn set_return_register(&mut self, _: usize, _: usize) -> bool {
-        todo!()
+    fn set_return_register(&mut self, idx: usize, val: usize) -> bool {
+        if let Some(reg) = self.ret_regs.get_mut(idx) {
+            *reg = val;
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -839,8 +1151,8 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
         // TODO: currently, we only support power-of-two return values.
         // It is not immediately obvious how values that are, e.g.,
         // 9 byte in size would be encoded into registers.
-        let rax_bytes = u64::to_le_bytes(self.inner.rax as u64);
-        let rdx_bytes = u64::to_le_bytes(self.inner.rdx as u64);
+        let rax_bytes = u64::to_le_bytes(lossless_usize_to_u64(self.inner.rax));
+        let rdx_bytes = u64::to_le_bytes(lossless_usize_to_u64(self.inner.rdx));
         let ret_bytes = [
             rax_bytes[0],
             rax_bytes[1],
