@@ -15,7 +15,7 @@ edition = "2024"
 [workspace.dependencies.omniglot]
 git = "https://github.com/omniglot-rs/omniglot"
 rev = "d5b58f7913b2afd55c4db9c45b97cb947900bb4e"
-# path = "../omniglot"
+# path = "../omniglot/omniglot"
 features = [ "std" ]
 
 [workspace.dependencies.bindgen]
