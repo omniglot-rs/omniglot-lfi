@@ -33,10 +33,31 @@
 
         lfi-runtime = pkgs.callPackage ./third-party/lfi-runtime/lfi-runtime.nix { };
 
-        rustToolchain = fenix.packages."${system}".fromToolchainFile {
-          file = ./rust-toolchain.toml;
-          sha256 = "sha256-9qmHY60Kelk6KZIOb/cpN5LKrfNiR81CPnTkHYXmBUg=";
-        };
+        rustToolchain = fenix.packages."${system}".fromToolchainFile (
+          let
+            # Serves as a sanity check, to not silently change the toml
+            # file without updating the Nix hash in this file.
+            rustToolchainTomlExpectedHash = "17a3092000cfdbe5bf26ccb122cbe7017fc71a7d03851dc1cce5b4b22223b499";
+            rustToolchainTomlHash = builtins.hashString "sha256" (builtins.readFile ./rust-toolchain.toml);
+
+            rustToolchainTomlNixHash = "sha256-Di+IXIUa+MEPYM7pUUjYmgR25SLFbGF3SEsK4DSoY6c=";
+          in
+          {
+            file = ./rust-toolchain.toml;
+            sha256 =
+              if (rustToolchainTomlHash != rustToolchainTomlExpectedHash) then
+                builtins.throw (
+                  "Unexpected rustToolchainTomlHash \"${rustToolchainTomlHash}\", "
+                  + "expecting \"${rustToolchainTomlExpectedHash}\". If you "
+                  + "intended to change the rust-toolchain.toml file, copy this "
+                  + "new hash into the rustToolchainTomlExpectedHash variable, and "
+                  + "update the rustToolchainTomlNixHash variable by clearing it "
+                  + "and setting it to the value produced by Nix."
+                )
+              else
+                rustToolchainTomlNixHash;
+          }
+        );
 
         rustPlatform = pkgs.makeRustPlatform {
           rustc = rustToolchain;
