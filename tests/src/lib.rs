@@ -17,6 +17,9 @@ pub mod liboglfitests {
 // runtime struct and return value contexts:
 mod add;
 
+// Tests of the `stack_alloc` routines:
+mod stack_alloc;
+
 pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
     brand: ID,
     f: impl for<'a> FnOnce(
