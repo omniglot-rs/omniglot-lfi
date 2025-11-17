@@ -15,7 +15,7 @@ use omniglot::rt::sysv_amd64::{SysVAMD64BaseRt, SysVAMD64InvokeRes, SysVAMD64Rt}
 use omniglot::rt::{CallbackContext, CallbackReturn, OGRuntime};
 use omniglot::{OGError, OGResult};
 
-use crate::common::OGLFIAllocTracker;
+use crate::common::{AllocChain, Allocation};
 use crate::liblfi;
 
 struct ForcePin<T> {
@@ -40,6 +40,26 @@ impl<T> std::ops::Deref for ForcePin<T> {
     }
 }
 
+macro_rules! lossless_as {
+    ($name:ident, $tyA:ty, $tyB:ty) => {
+        #[inline(always)]
+        fn $name(src: $tyA) -> $tyB {
+            // Raise a compiler error if these types have differing size or alignment:
+            const _: () = assert!(
+                std::mem::size_of::<$tyA>() == std::mem::size_of::<$tyB>()
+                    && std::mem::align_of::<$tyA>() == std::mem::align_of::<$tyB>()
+            );
+
+            src as $tyB
+        }
+    };
+}
+
+lossless_as!(lossless_usize_to_u64, usize, u64);
+lossless_as!(lossless_c_void_ptr_to_u64, *mut c_void, u64);
+lossless_as!(lossless_usize_to_c_void_ptr, usize, *mut c_void);
+lossless_as!(lossless_u64_to_unit_ptr, u64, *mut ());
+
 #[repr(C)]
 pub struct OGLFISysVAMD64Runtime<ID: OGID> {
     // -------------------------------------------------------------------------
@@ -49,6 +69,10 @@ pub struct OGLFISysVAMD64Runtime<ID: OGID> {
     lfi_thread: *mut liblfi::LFILinuxThread,
     lfi_box: *mut liblfi::LFIBox,
     lfi_ctx: *mut liblfi::LFIContext,
+
+    // Sandbox base memory address, used to ensure that the host does not write
+    // beyond this value when pushing arguments onto the sandbox stack:
+    box_base: *mut c_void,
 
     // Pointer to the current LFI context's LFIRegs struct, prepared by the
     // `execute` hook and valid for the single call to `invoke` within its
@@ -194,6 +218,10 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         let lfi_box: *mut liblfi::LFIBox = unsafe { liblfi::lfi_proc_box(lfi_proc) };
         let lfi_ctx: *mut liblfi::LFIContext = unsafe { *liblfi::lfi_thread_ctxp(lfi_thread) };
 
+        // Determine the LFIBox base address, for overflow checks on the host:
+        let lfi_box_info: liblfi::LFIBoxInfo = unsafe { liblfi::lfi_box_info(lfi_box) };
+        let box_base: *mut c_void = lossless_usize_to_c_void_ptr(lfi_box_info.base);
+
         let id_imprint = id.get_imprint();
 
         Ok((
@@ -205,6 +233,8 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                 lfi_box,
                 lfi_ctx,
 
+                box_base,
+
                 invoke_lfi_regs_ptr: UnsafeCell::new(std::ptr::null_mut()),
 
                 pinned_program_name,
@@ -212,7 +242,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                 pinned_argv,
                 pinned_envp,
             },
-            unsafe { AllocScope::new(OGLFIAllocTracker, id_imprint) },
+            unsafe { AllocScope::new(AllocChain::Base, id_imprint) },
             unsafe { AccessScope::new(id_imprint) },
         ))
     }
@@ -222,7 +252,7 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
     type ID = ID;
     type ABI = SysVAMD64ABI;
 
-    type AllocTracker<'a> = OGLFIAllocTracker;
+    type AllocTracker<'a> = AllocChain<'a>;
 
     type CallbackTrampolineFn = ();
     type CallbackContext = OGLFISysVAMD64CallbackContext;
@@ -300,25 +330,95 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
 
     fn allocate_stacked_untracked_mut<F, R>(
         &self,
-        _requested_layout: core::alloc::Layout,
-        _fun: F,
+        requested_layout: core::alloc::Layout,
+        fun: F,
     ) -> OGResult<R>
     where
         F: FnOnce(*mut ()) -> R,
     {
-        todo!()
+        // Allocate space for the supplied layout on the foreign stack.
+        //
+        // The LFIRegs struct may be further modified within the provided
+        // callback closure, so we ensure that our mutable reference of it does
+        // not live concurrently with the callback's execution:
+        let (original_fsp, new_fsp) = {
+            let lfi_regs: &mut liblfi::LFIRegs =
+                unsafe { &mut *liblfi::lfi_ctx_regs(self.lfi_ctx) };
+
+            // Save the original foreign stack pointer:
+            let original_fsp: u64 = lfi_regs.rsp;
+            let mut fsp: u64 = original_fsp;
+
+            // Move the stack pointer downward by the requested size. We always
+            // use saturating_sub() to avoid underflows:
+            fsp = fsp.saturating_sub(lossless_usize_to_u64(requested_layout.size()));
+
+            // Now, adjust the foreign stack pointer downward to the required
+            // alignment. The modulo operation and saturating_sub should be
+            // optimized away here into simply bitwise operations.
+            assert!(requested_layout.align().is_power_of_two());
+            fsp =
+                fsp.saturating_sub(original_fsp % lossless_usize_to_u64(requested_layout.align()));
+
+            // Check that we did not produce a stack overflow. If that happened,
+            // we must return before saving this stack pointer, or writing to
+            // the pointer.
+            if fsp < lossless_c_void_ptr_to_u64(self.box_base) {
+                return Err(OGError::AllocNoMem);
+            }
+
+            // Save the new stack pointer in the LFIRegs:
+            lfi_regs.rsp = fsp;
+
+            // The new foreign stack pointer may not be aligned to a 16 byte
+            // boundary (as required prior to a `call` instruction), but that's
+            // OK: the invoke assembly copies stack arguments and then aligns it
+            // properly.
+            (original_fsp, fsp)
+        };
+
+        // Call the closure with the allocation:
+        let res = fun(lossless_u64_to_unit_ptr(new_fsp));
+
+        // Finally, restore the original foreign stack pointer:
+        {
+            let lfi_regs: &mut liblfi::LFIRegs =
+                unsafe { &mut *liblfi::lfi_ctx_regs(self.lfi_ctx) };
+
+            lfi_regs.rsp = original_fsp;
+        }
+
+        // Return the closure result:
+        Ok(res)
     }
 
     fn allocate_stacked_mut<'a, F, R>(
         &self,
-        _layout: core::alloc::Layout,
-        _alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, ID>,
-        _fun: F,
+        layout: core::alloc::Layout,
+        alloc_scope: &mut AllocScope<'_, Self::AllocTracker<'_>, ID>,
+        fun: F,
     ) -> Result<R, OGError>
     where
         F: for<'b> FnOnce(*mut (), &'b mut AllocScope<'_, Self::AllocTracker<'_>, Self::ID>) -> R,
     {
-        todo!()
+        self.allocate_stacked_untracked_mut(layout, move |ptr| {
+            // Create a new allocation frame:
+            let mut inner_alloc_scope: AllocScope<'_, AllocChain<'_>, ID> = unsafe {
+                AllocScope::new(
+                    AllocChain::HostAllocation(
+                        alloc_scope.tracker(),
+                        Allocation {
+                            ptr,
+                            len: layout.size(),
+                            mutable: true,
+                        },
+                    ),
+                    alloc_scope.id_imprint(),
+                )
+            };
+
+            fun(ptr, &mut inner_alloc_scope)
+        })
     }
 
     fn setup_callback<'a, C, F, R>(
