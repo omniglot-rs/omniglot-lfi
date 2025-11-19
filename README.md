@@ -51,3 +51,45 @@ $ nix fmt          # Format source files in tree (using rustfmt, nixfmt, etc.)
 $ nix flake check  # Run basic formatting checks and linters
 $ nix flake show   # Show targets available in this Nix flake
 ```
+
+### Using a local, custom build of `lfi-runtime`
+
+For development it can be useful for build or tests against a custom build of
+`lfi-runtime`, and not the version built using included Nix derivation. For this
+purpose, the Nix flake features a special `external-lfi-runtime` development
+shell.
+
+First, build your local checkout of the `lfi-runtime` repository and then
+"install" it into a local directory, as follows:
+```
+~/dev $ git clone https://github.com/lfi-project/lfi-runtime
+~/dev $ cd lfi-runtime/
+
+# If on NixOS, make build dependencies available in a Nix shell:
+~/dev/lfi-runtime $ nix-shell -p meson ninja pkg-config
+
+~/dev/lfi-runtime $ mkdir -p install
+~/dev/lfi-runtime $ meson setup --prefix=$(readlink -f ./install) build
+~/dev/lfi-runtime $ cd build/
+~/dev/lfi-runtime/build $ ninja
+~/dev/lfi-runtime/build $ ninja install
+```
+
+Now, run the following command in the `omniglot-lfi` repository to enter into a
+development shell that uses this built LFI runtime:
+```
+~/dev/omniglot-lfi $ LFI_RUNTIME_INSTALL_PREFIX=$(readlink -f ../lfi-runtime/install/) \
+    nix develop '.#external-lfi-runtime'
+```
+
+Within this shell, you can build the Omniglot LFI runtime and run examples and tests as usual:
+```
+~/dev/omniglot-lfi $ cargo test
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running unittests src/lib.rs (target/debug/deps/omniglot_lfi_tests-537ec127019f5fc2)
+running 11 tests
+test add::test_add5 ... ok
+test add::test_add3 ... ok
+test add::test_add4 ... ok
+[...]
+```

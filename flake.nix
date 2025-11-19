@@ -211,23 +211,66 @@
 
         formatter = (treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
 
-        devShells.default = pkgs.mkShell {
-          name = "omniglot-lfi-devshell";
+        devShells =
+          let
+            commonPackages = with pkgs; [
+              rustToolchain
+              pkg-config
+              clang
+              lldb
+              gdb
+            ];
+          in
+          {
+            default = pkgs.mkShell {
+              name = "omniglot-lfi-devshell";
 
-          packages = with pkgs; [
-            rustToolchain
-            lfi-runtime
-            pkg-config
-            clang
-            lldb
-            gdb
-          ];
+              packages = commonPackages ++ [
+                lfi-runtime
+              ];
 
-          shellHook = ''
-            export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
-            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ lfi-runtime ]}:$LD_LIBRARY_PATH"
-          '';
-        };
+              shellHook = ''
+                if [ -n "''${LFI_RUNTIME_INSTALL_PREFIX}" ]; then
+                    echo "ERROR: This development shell does not respect the" \
+                      "\''${LFI_RUNTIME_INSTALL_PREFIX} environment variable." \
+                      "Either clear this variable, or use the" \
+                      "\"external-lfi-runtime\" development shell instead." >&2
+                    exit 1
+                fi
+
+                export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
+                export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ lfi-runtime ]}:''${LD_LIBRARY_PATH}"
+              '';
+            };
+
+            external-lfi-runtime = pkgs.mkShell {
+              name = "omniglot-lfi-external-lfi-runtime-devshell";
+
+              packages = commonPackages;
+
+              shellHook = ''
+                if [ ! -n "''${LFI_RUNTIME_INSTALL_PREFIX}" ]; then
+                    echo "ERROR: You must set the \''${LFI_RUNTIME_INSTALL_PREFIX}" \
+                      "environment variable for this devshell derivation." >&2
+                    exit 1
+                fi
+
+                LFI_RUNTIME_PKG_CONFIG_PATH="''${LFI_RUNTIME_INSTALL_PREFIX}/lib/pkgconfig"
+                if [ ! -f "''${LFI_RUNTIME_PKG_CONFIG_PATH}/lfi.pc" ]; then
+                    echo "WARNING: \''${LFI_RUNTIME_PKG_CONFIG_PATH}/lfi.pc" \
+                     "does not exist. Are you sure you've set the" \
+                     "\''${LFI_RUNTIME_INSTALL_PREFIX} enviroment variable to" \
+                     "the correct path, and built / installed the LFI runtime" \
+                     "into this prefix?" >&2
+                    echo "LFI_RUNTIME_PKG_CONFIG_PATH=''${LFI_RUNTIME_PKG_CONFIG_PATH}" >&2
+                fi
+
+                export LIBCLANG_PATH="${pkgs.libclang.lib}/lib"
+                export LD_LIBRARY_PATH="''${LFI_RUNTIME_INSTALL_PREFIX}/lib:''${LD_LIBRARY_PATH:-}"
+                export PKG_CONFIG_PATH="''${LFI_RUNTIME_PKG_CONFIG_PATH}:''${PKG_CONFIG_PATH:-}"
+              '';
+            };
+          };
       }
     );
 }
