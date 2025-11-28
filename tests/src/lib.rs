@@ -17,9 +17,14 @@ pub mod liboglfitests {
 // runtime struct and return value contexts:
 mod add;
 
+// Callback-related tests:
+mod callbacks;
+
 // Tests of the `stack_alloc` routines:
 mod stack_alloc;
 
+// Helper function, to load the tests library into LFI and create an
+// Omniglot-LFI wrapper instance:
 pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
     brand: ID,
     f: impl for<'a> FnOnce(

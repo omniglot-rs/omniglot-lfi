@@ -30,3 +30,5 @@ fntab_id = 8
 [functions.add9]
 fntab_id = 9
 
+[functions.invoke_callback]
+fntab_id = 10

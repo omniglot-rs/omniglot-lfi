@@ -12,3 +12,4 @@ cc = "1.2.29"
 page_size = "0.6.0"
 omniglot.workspace = true
 log = "0.4.27"
+closure-ffi = "5.0.1"
