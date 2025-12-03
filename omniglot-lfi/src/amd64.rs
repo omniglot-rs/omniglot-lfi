@@ -506,14 +506,14 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
     type CallbackContext = OGLFISysVAMD64CallbackContext;
     type CallbackReturn = OGLFISysVAMD64CallbackReturn;
 
-    type SymbolTableState<const SYMTAB_SIZE: usize, const FIXED_OFFSET_SYMTAB_SIZE: usize> =
+    type SymbolTableState<'a, const SYMTAB_SIZE: usize, const FIXED_OFFSET_SYMTAB_SIZE: usize> =
         OGLFISysVAMD64SymbolTable<SYMTAB_SIZE>;
 
-    fn resolve_symbols<const SYMTAB_SIZE: usize, const FIXED_OFFSET_SYMTAB_SIZE: usize>(
+    fn resolve_symbols<'a, const SYMTAB_SIZE: usize, const FIXED_OFFSET_SYMTAB_SIZE: usize>(
         &self,
-        compact_symbol_table: &'static [&'static CStr; SYMTAB_SIZE],
-        _fixed_offset_symbol_table: &'static [Option<&'static CStr>; FIXED_OFFSET_SYMTAB_SIZE],
-    ) -> Result<Self::SymbolTableState<SYMTAB_SIZE, FIXED_OFFSET_SYMTAB_SIZE>, Option<&'static CStr>>
+        compact_symbol_table: &'a [&'a CStr; SYMTAB_SIZE],
+        _fixed_offset_symbol_table: &'a [Option<&'a CStr>; FIXED_OFFSET_SYMTAB_SIZE],
+    ) -> Result<Self::SymbolTableState<'a, SYMTAB_SIZE, FIXED_OFFSET_SYMTAB_SIZE>, Option<&'a CStr>>
     {
         let mut missing_symbol = None;
 
@@ -571,7 +571,7 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
         &self,
         compact_symtab_index: usize,
         _fixed_offset_symtab_index: usize,
-        symtabstate: &Self::SymbolTableState<SYMTAB_SIZE, FIXED_OFFSET_SYMTAB_SIZE>,
+        symtabstate: &Self::SymbolTableState<'_, SYMTAB_SIZE, FIXED_OFFSET_SYMTAB_SIZE>,
     ) -> Option<*const ()> {
         symtabstate.symbols.get(compact_symtab_index).copied()
     }

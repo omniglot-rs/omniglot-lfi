@@ -15,11 +15,11 @@ edition = "2024"
 
 [workspace.dependencies.omniglot]
 git = "https://github.com/omniglot-rs/omniglot"
-rev = "b3c5ef8e1e40e2a466e926bcac1d989021833e38"
+rev = "52fee02f404374e71174d8c3e36afb3159bfcf20"
 # path = "../omniglot/omniglot"
 features = [ "std" ]
 
 [workspace.dependencies.bindgen]
 git = "https://github.com/omniglot-rs/rust-bindgen"
-rev = "fffcf97244fc77c2cfa8d2290d740385f18021f1"
+rev = "8c5d80549c02cd57905ced1e6b8ecebe2d92c7f5"
 # path = "../rust-bindgen/bindgen"
