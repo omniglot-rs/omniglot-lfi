@@ -54,8 +54,8 @@ stdenv.mkDerivation rec {
         popd
       }
 
-      fetchSubprojects ""
-      fetchSubprojects "subprojects/lfi-verifier"
+      fetchSubprojects "./"
+      fetchSubprojects "./subprojects/lfi-verifier"
     '';
 
     sha256 = "sha256-GTSIe0THN2YS5WghH1wv2o0OGM1KpBMZo0R8VLCcaqk=";
