@@ -13,7 +13,7 @@
 
 let
   # `abort-callback` branch:
-  lfi-runtime-git-rev = "d912973d674e0c5080f9000e085f5516b3d1d5dc";
+  lfi-runtime-git-rev = "f7291b196593d987e941d81e9c73d4498b6f40c5";
 
 in
 stdenv.mkDerivation rec {
@@ -21,8 +21,7 @@ stdenv.mkDerivation rec {
   version = "git-${builtins.substring 0 14 lfi-runtime-git-rev}";
 
   src = fetchFromGitHub {
-    # owner = "lfi-project";
-    owner = "lschuermann";
+    owner = "lfi-project";
     repo = pname;
     rev = lfi-runtime-git-rev;
 
@@ -58,7 +57,7 @@ stdenv.mkDerivation rec {
       fetchSubprojects "./subprojects/lfi-verifier"
     '';
 
-    sha256 = "sha256-GTSIe0THN2YS5WghH1wv2o0OGM1KpBMZo0R8VLCcaqk=";
+    sha256 = "sha256-WEIjYMIKupdQfggW3nzzAaKTWr/NdPIGbB5PnGLp2wo=";
   };
 
   nativeBuildInputs = [
