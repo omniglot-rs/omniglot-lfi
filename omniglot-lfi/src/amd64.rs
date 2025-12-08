@@ -2,7 +2,6 @@ use std::borrow::Borrow;
 use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::marker::{PhantomData, PhantomPinned};
-use std::mem::MaybeUninit;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -1177,11 +1176,6 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
         // two available 64-bit return registers:
         assert!(std::mem::size_of::<T>() <= 2 * std::mem::size_of::<*const ()>());
 
-        // Allocate space to construct the final (unvalidated) T from
-        // the register values. During copy, we treat the memory of T
-        // as integers:
-        let mut ret_uninit: MaybeUninit<T> = MaybeUninit::uninit();
-
         // TODO: currently, we only support power-of-two return values.
         // It is not immediately obvious how values that are, e.g.,
         // 9 byte in size would be encoded into registers.
@@ -1206,29 +1200,20 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
             rdx_bytes[7],
         ];
 
-        ret_uninit
-            .as_bytes_mut()
-            .write_copy_of_slice(&ret_bytes[..std::mem::size_of::<T>()]);
-
-        OGResult::Ok(ret_uninit.into())
+        OGResult::Ok(OGCopy::from_bytes(&ret_bytes[..std::mem::size_of::<T>()]))
     }
 
     unsafe fn into_result_stacked(self, _rt: &RT, stacked_res: *mut T) -> OGResult<OGCopy<T>> {
         self.encode_eferror()?;
 
-        // Allocate space to construct the final (unvalidated) T from
-        // the register values. During copy, we treat the memory of T
-        // as integers:
-        let mut ret_uninit: MaybeUninit<T> = MaybeUninit::uninit();
+        // Copy the return value from the foreign library's stack.
+        //
+        // TODO: reason about safety.
+        //
+        let ret = OGCopy::from_bytes(unsafe {
+            std::slice::from_raw_parts(stacked_res as *const u8, std::mem::size_of::<T>())
+        });
 
-        // Now, we simply do a memcpy from our pointer. We trust the caller that
-        // the provided pointer is allocated, not aliasing any Rust struct, not
-        // being mutated concurrently, and accessible to us. We cast it into a
-        // layout-compatible MaybeUninit pointer:
-        unsafe {
-            std::ptr::copy_nonoverlapping(stacked_res as *const T, ret_uninit.as_mut_ptr(), 1)
-        };
-
-        OGResult::Ok(ret_uninit.into())
+        OGResult::Ok(ret)
     }
 }

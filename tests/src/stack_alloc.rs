@@ -16,7 +16,7 @@ fn test_stack_alloc_basic() {
                     const ARRAY_CONTENTS: &[u8] = b"Hello World!";
 
                     // Initialize with some known-good data:
-                    arr.copy_from_slice(ARRAY_CONTENTS, &mut access);
+                    arr.as_slice().copy_from_slice(ARRAY_CONTENTS, &mut access);
 
                     // Now, invoke a function that spills arguments onto the stack:
                     assert_eq!(
@@ -36,17 +36,17 @@ fn test_stack_alloc_basic() {
                     // Make sure that its contents have not been
                     // touched. Explicit assert over both slices' length to
                     // ensure that `.zip()` doesn't truncate:
-                    assert_eq!(arr.len(), ARRAY_CONTENTS.len());
-                    arr.iter()
-                        .zip(ARRAY_CONTENTS.iter())
-                        .for_each(|(arr_elem, expected)| {
+                    assert_eq!(arr.as_slice().len(), ARRAY_CONTENTS.len());
+                    arr.as_slice().iter().zip(ARRAY_CONTENTS.iter()).for_each(
+                        |(arr_elem, expected)| {
                             assert_eq!(
                                 *arr_elem
                                     .validate(&mut access)
                                     .expect("Failed to validate array contents"),
                                 *expected
                             )
-                        });
+                        },
+                    );
                 })
                 .expect("Error allocating [u8; 16] on foreign stack");
         })

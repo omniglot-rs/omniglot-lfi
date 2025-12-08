@@ -441,9 +441,10 @@ dependencies = [
 [[package]]
 name = "omniglot"
 version = "0.1.0"
-source = "git+https://github.com/omniglot-rs/omniglot?rev=52fee02f404374e71174d8c3e36afb3159bfcf20#52fee02f404374e71174d8c3e36afb3159bfcf20"
+source = "git+https://github.com/omniglot-rs/omniglot?rev=bd8654b11ce47118d3158a08e83be2011eb02b01#bd8654b11ce47118d3158a08e83be2011eb02b01"
 dependencies = [
  "seq-macro",
+ "zerocopy",
 ]
 
 [[package]]
@@ -1058,4 +1059,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "zerocopy"
+version = "0.8.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd74ec98b9250adb3ca554bdde269adf631549f51d8a8f8f0a10b50f1cb298c3"
+dependencies = [
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.8.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8a8d209fdf45cf5138cbb5a506f6b52522a25afccc534d1475dad8e31105c6a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
