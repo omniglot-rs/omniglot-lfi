@@ -10,3 +10,5 @@ int add8(int a, int b, int c, int d, int e, int f, int g, int h);
 int add9(int a, int b, int c, int d, int e, int f, int g, int h, int i);
 
 int invoke_callback(int cb(int), int cb_arg);
+
+void *current_sandbox_sp();

@@ -70,7 +70,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 [[package]]
 name = "bindgen"
 version = "0.69.4"
-source = "git+https://github.com/omniglot-rs/rust-bindgen?rev=8c5d80549c02cd57905ced1e6b8ecebe2d92c7f5#8c5d80549c02cd57905ced1e6b8ecebe2d92c7f5"
+source = "git+https://github.com/omniglot-rs/rust-bindgen?rev=1857e928405797948bfb393c0503c2edb79c33b1#1857e928405797948bfb393c0503c2edb79c33b1"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -441,7 +441,7 @@ dependencies = [
 [[package]]
 name = "omniglot"
 version = "0.1.0"
-source = "git+https://github.com/omniglot-rs/omniglot?rev=bd8654b11ce47118d3158a08e83be2011eb02b01#bd8654b11ce47118d3158a08e83be2011eb02b01"
+source = "git+https://github.com/omniglot-rs/omniglot?rev=70989be54dfab218f9eb5ab3f67dd145f45b19c7#70989be54dfab218f9eb5ab3f67dd145f45b19c7"
 dependencies = [
  "seq-macro",
  "zerocopy",

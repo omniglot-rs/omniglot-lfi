@@ -41,3 +41,9 @@ int add9(int a, int b, int c, int d, int e, int f, int g, int h, int i) {
 int invoke_callback(int cb(int), int cb_arg) {
     return cb(cb_arg);
 }
+
+void *current_sandbox_sp() {
+    void *stack_ptr;
+    __asm__ __volatile__("mov %%rsp, %0" : "=r"(stack_ptr));
+    return stack_ptr;
+}

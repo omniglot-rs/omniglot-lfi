@@ -12,6 +12,7 @@ use log;
 use omniglot::abi::calling_convention::{AREG0, AREG1, AREG2, AREG3, AREG4, AREG5, Stacked};
 use omniglot::abi::sysv_amd64::SysVAMD64ABI;
 use omniglot::foreign_memory::og_copy::OGCopy;
+use omniglot::foreign_memory::og_ret::OGRet;
 use omniglot::id::OGID;
 use omniglot::markers::{AccessScope, AllocScope};
 use omniglot::rt::sysv_amd64::{SysVAMD64BaseRt, SysVAMD64InvokeRes, SysVAMD64Rt};
@@ -131,9 +132,13 @@ pub struct OGLFISysVAMD64Runtime<ID: OGID> {
     lfi_box: *mut liblfi::LFIBox,
     lfi_ctx: *mut liblfi::LFIContext,
 
-    // Sandbox base memory address, used to ensure that the host does not write
-    // beyond this value when pushing arguments onto the sandbox stack:
+    // Sandbox memory addresses.
+    //
+    // Used to ensure that the host does not write beyond the sandbox bounds
+    // when pushing arguments onto the sandbox stack:
     box_base: *mut c_void,
+    box_min_addr: *mut c_void,
+    box_max_addr: *mut c_void,
 
     // Pointer to the current LFI context's LFIRegs struct, prepared by the
     // `execute` hook and valid for the single call to `invoke` within its
@@ -308,6 +313,8 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         // Determine the LFIBox base address, for overflow checks on the host:
         let lfi_box_info: liblfi::LFIBoxInfo = unsafe { liblfi::lfi_box_info(lfi_box) };
         let box_base: *mut c_void = lossless_usize_to_c_void_ptr(lfi_box_info.base);
+        let box_min_addr: *mut c_void = lossless_usize_to_c_void_ptr(lfi_box_info.min);
+        let box_max_addr: *mut c_void = lossless_usize_to_c_void_ptr(lfi_box_info.max);
 
         // State shared with callback handlers (Rc'ed, to produce static,
         // non-stacked callbacks):
@@ -388,6 +395,8 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             lfi_ctx,
 
             box_base,
+            box_min_addr,
+            box_max_addr,
 
             invoke_lfi_regs_ptr: UnsafeCell::new(std::ptr::null_mut()),
 
@@ -1016,7 +1025,7 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
             // Check that we did not produce a stack overflow. If that happened,
             // we must return before saving this stack pointer, or writing to
             // the pointer.
-            if fsp < lossless_c_void_ptr_to_u64(self.box_base) {
+            if fsp < lossless_c_void_ptr_to_u64(self.box_min_addr) {
                 return Err(OGError::AllocNoMem);
             }
 
@@ -1308,23 +1317,24 @@ macro_rules! invoke_asm {
             // we can avoid a function call (and stacking any clobbered
             // registers here).
             //
-            // Load the LFIRegs pointer into r10 (caller-saved,
+            // Load the LFIRegs pointer into r11 (caller-saved,
             // non-argument) and push it onto the stack (we'll need
             // access to it to restore the original stack pointer, and
             // it may be overwritten by a nested invoke in a callback):
-            "mov r10, qword ptr [r10 + {rt_invoke_lfi_regs_ptr_offset}]",
-            "push r10",
+            "mov r11, qword ptr [r10 + {rt_invoke_lfi_regs_ptr_offset}]",
+            "push r11",
             //
             // Load the current sandbox stack pointer into r11
             // (caller-saved, non-argument) and save it onto the stack:
-            "mov r11, qword ptr [r10 + {lfiregs_rsp_offset}]",
+            "mov r11, qword ptr [r11 + {lfiregs_rsp_offset}]",
             "push r11",
             //
             // Now we copy the stacked arguments from the host stack.
             // For this we need to:
             //
             // 1. Subtract bytes occupied by stacked arguments:
-            "sub r11, {stack_spill}",
+	    "movabs rax, {stack_spill}",
+            "sub r11, rax",
             //
             // 2. If subtraction underflowed (carry is set), return a
             //    stack overflow error:
@@ -1333,8 +1343,12 @@ macro_rules! invoke_asm {
             // 3. Align new stack downward to a 16-byte boundary:
             "and r11, -16",
             //
-            // 4. Check for stack overflow against stack_bottom:
-            "jmp 200f", // TODO: compare against a "stack_bottom"
+            // 4. Check for stack overflow against the min sandbox addr:
+	    "cmp r11, qword ptr [r10 + {rt_box_min_addr_offset}]",
+	    //
+	    // 5. Jump to 200f (no overlow occured) of the new stack pointer is
+	    //    larger than or equal to the min sandbox addr:
+            "jge 200f",
 
             "150:", // ----- STACK OVERFLOW OCCURRED -----
             //
@@ -1395,8 +1409,10 @@ macro_rules! invoke_asm {
             "pop rdi",
             "pop rsi",
 
-            // Finally, save the updated stack pointer back to the
-            // LFIRegs struct:
+            // Finally, save the updated stack pointer back to the LFIRegs
+            // struct. A pointer to this struct is saved one word up the stack,
+            // above the original sandbox stack pointer:
+	    "mov r10, [rsp + 8]",
             "mov qword ptr [r10 + {lfiregs_rsp_offset}], r11",
 
             // Call the LFI trampoline. The function to invoke has been
@@ -1450,6 +1466,8 @@ macro_rules! invoke_asm {
             // Runtime struct offsets:
             rt_invoke_lfi_regs_ptr_offset = const std::mem::offset_of!(
                 OGLFISysVAMD64Runtime<ID>, invoke_lfi_regs_ptr),
+            rt_box_min_addr_offset = const std::mem::offset_of!(
+                OGLFISysVAMD64Runtime<ID>, box_min_addr),
 
             // LFIRegs struct offsets:
             lfiregs_rsp_offset = const std::mem::offset_of!(liblfi::LFIRegs, rsp),
@@ -1568,7 +1586,7 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
         }
     }
 
-    fn into_result_registers(self, _rt: &RT) -> OGResult<OGCopy<T>> {
+    fn into_result_registers(self, _rt: &RT) -> OGResult<OGRet<T>> {
         self.encode_eferror()?;
 
         // Basic assumptions in this method:
@@ -1606,19 +1624,21 @@ unsafe impl<RT: SysVAMD64BaseRt, T> SysVAMD64InvokeRes<RT, T> for OGLFISysVAMD64
             rdx_bytes[7],
         ];
 
-        OGResult::Ok(OGCopy::from_bytes(&ret_bytes[..std::mem::size_of::<T>()]))
+        OGResult::Ok(OGRet::from_og_copy(OGCopy::from_bytes(
+            &ret_bytes[..std::mem::size_of::<T>()],
+        )))
     }
 
-    unsafe fn into_result_stacked(self, _rt: &RT, stacked_res: *mut T) -> OGResult<OGCopy<T>> {
+    unsafe fn into_result_stacked(self, _rt: &RT, stacked_res: *mut T) -> OGResult<OGRet<T>> {
         self.encode_eferror()?;
 
         // Copy the return value from the foreign library's stack.
         //
         // TODO: reason about safety.
         //
-        let ret = OGCopy::from_bytes(unsafe {
+        let ret = OGRet::from_og_copy(OGCopy::from_bytes(unsafe {
             std::slice::from_raw_parts(stacked_res as *const u8, std::mem::size_of::<T>())
-        });
+        }));
 
         OGResult::Ok(ret)
     }

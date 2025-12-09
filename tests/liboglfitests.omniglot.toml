@@ -32,3 +32,6 @@ fntab_id = 9
 
 [functions.invoke_callback]
 fntab_id = 10
+
+[functions.current_sandbox_sp]
+fntab_id = 11

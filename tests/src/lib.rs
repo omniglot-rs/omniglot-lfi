@@ -28,6 +28,9 @@ mod stack_alloc;
 // Tests of heap memory allocation and allow/revoke boxrt callbacks:
 mod malloc;
 
+// Tests exercising stack overflow handling:
+mod stack_overflow;
+
 // Helper function to initialize the env_logger crate, called from the
 // other `with_*_rt_lib` helper(s) in this file:
 pub fn env_logger_init() {
