@@ -208,11 +208,6 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
 
         // Initialize return and callbacks:
         unsafe { liblfi::lfi_box_init_ret(liblfi::lfi_proc_box(lfi_proc)) };
-        let lfi_box_cbinit_res = unsafe { liblfi::lfi_box_cbinit(liblfi::lfi_proc_box(lfi_proc)) };
-        if !lfi_box_cbinit_res {
-            log::error!("Failed to initialize LFI callbacks");
-            return Err(OGError::InternalError);
-        }
 
         let pinned_arguments = arguments
             .map(|arg| Box::pin(ForcePin::new(arg)))
