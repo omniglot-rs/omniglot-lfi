@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 #[test]
 fn test_stack_alloc_basic() {
     omniglot::id::lifetime::OGLifetimeBranding::new(|brand| {

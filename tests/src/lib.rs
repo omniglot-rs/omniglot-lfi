@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 // Prelude:
 use omniglot::id::OGID;
 use omniglot::markers::{AccessScope, AllocScope};

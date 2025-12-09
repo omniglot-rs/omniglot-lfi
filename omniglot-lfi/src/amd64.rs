@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::{CStr, CString, c_char, c_int, c_void};

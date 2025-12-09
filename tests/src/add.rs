@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 macro_rules! add_args_test {
     ($count:expr, $expected_result:expr) => {
         paste::paste! {

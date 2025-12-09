@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 // TODO: this should ensure that we're not seeting "Callback #1 post-panic..."
 // in the output, which would indicate that we're not re-rasing the panic object
 // after returning from LFI.

@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 use std::env;
 use std::path::PathBuf;
 
