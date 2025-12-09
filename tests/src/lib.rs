@@ -25,9 +25,36 @@ mod callbacks;
 // Tests of the `stack_alloc` routines:
 mod stack_alloc;
 
+// Tests of heap memory allocation and allow/revoke boxrt callbacks:
+mod malloc;
+
+// Helper function to initialize the env_logger crate, called from the
+// other `with_*_rt_lib` helper(s) in this file:
+pub fn env_logger_init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
+
+pub trait OGLFITestConfiguration {
+    const BINARY: &'static [u8];
+    const ENABLE_ALLOW_REVOKE: bool;
+}
+
+pub enum OGLFITestDefaultConfig {}
+impl OGLFITestConfiguration for OGLFITestDefaultConfig {
+    const BINARY: &'static [u8] = include_bytes!("../liboglfitests_lfi/liboglfitests_default.lfi");
+    const ENABLE_ALLOW_REVOKE: bool = false;
+}
+
+pub enum OGLFITestAutoAllowRevokeConfig {}
+impl OGLFITestConfiguration for OGLFITestAutoAllowRevokeConfig {
+    const BINARY: &'static [u8] =
+        include_bytes!("../liboglfitests_lfi/liboglfitests_auto_allow_revoke.lfi");
+    const ENABLE_ALLOW_REVOKE: bool = true;
+}
+
 // Helper function, to load the tests library into LFI and create an
 // Omniglot-LFI wrapper instance:
-pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
+pub fn with_lfi_sysv_amd64_rt_lib<CFG: OGLFITestConfiguration, ID: OGID, R>(
     brand: ID,
     f: impl for<'a> FnOnce(
         liboglfitests::LibOGLFITestsRt<
@@ -45,10 +72,13 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
         AccessScope<ID>,
     ) -> R,
 ) -> R {
+    env_logger_init();
+
     let (rt, alloc, access) = omniglot_lfi::amd64::OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
-        include_bytes!("../liboglfitests_lfi/liboglfitests.lfi"),
+        CFG::BINARY,
         c"liboglfitests".into(),
         [].into_iter(),
+        CFG::ENABLE_ALLOW_REVOKE,
         brand,
     )
     .unwrap();

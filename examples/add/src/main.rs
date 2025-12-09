@@ -32,6 +32,9 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
         include_bytes!("../libadd_lfi/libadd.lfi"),
         c"libadd".into(),
         [].into_iter(),
+        // allow foreign library to use allow/revoke cbs to control which memory
+        // the host can access:
+        true,
         brand,
     )
     .unwrap();

@@ -6,7 +6,7 @@ macro_rules! add_args_test {
             #[test]
             fn [<test_add $count>]() {
                 omniglot::id::lifetime::OGLifetimeBranding::new(|brand| {
-                    crate::with_lfi_sysv_amd64_rt_lib(brand, |lib, mut alloc, mut access| {
+                    crate::with_lfi_sysv_amd64_rt_lib::<crate::OGLFITestDefaultConfig, _, _>(brand, |lib, mut alloc, mut access| {
                         use crate::liboglfitests::LibOGLFITests;
 
                         const FN_NAME: &str = stringify!([<add $count>]);
