@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::{CStr, CString, c_char, c_int, c_void};
@@ -16,7 +18,7 @@ use omniglot::rt::sysv_amd64::{SysVAMD64BaseRt, SysVAMD64InvokeRes, SysVAMD64Rt}
 use omniglot::rt::{CallbackContext, CallbackReturn, OGRuntime};
 use omniglot::{OGError, OGResult};
 
-use crate::common::{AllocChain, Allocation};
+use crate::common::{AllocChain, Allocation, AllowedRegions};
 use crate::liblfi;
 
 struct ForcePin<T> {
@@ -41,6 +43,28 @@ impl<T> std::ops::Deref for ForcePin<T> {
     }
 }
 
+/// Generate functions to cast between types, ensuring that they don't loose any
+/// information.
+///
+/// For instance, to generate a function between `usize` and a raw pointer, the
+/// following can be used:
+///
+/// ```
+/// omniglot_lfi::lossless_as!(lossless_unit_ptr_to_usize, *mut (), usize);
+///
+/// // This creates an integer with value `0`:
+/// let _: usize = lossless_unit_ptr_to_usize(core::ptr::null_mut());
+/// ```
+///
+/// However, the following will raise a compile-time error:
+///
+/// ```compile_fail,E0080
+/// omniglot_lfi::lossless_as!(lossless_u64_to_u32, u64, u32);
+///
+/// let _: u32 = lossless_u64_to_u32(42);
+/// ```
+// This needs to be `macro_export` just to be usable in a doctest.
+#[macro_export]
 macro_rules! lossless_as {
     ($name:ident, $tyA:ty, $tyB:ty) => {
         #[inline(always)]
@@ -101,6 +125,7 @@ pub struct OGLFISysVAMD64Runtime<ID: OGID> {
     // -------------------------------------------------------------------------
     // Misc state:
     id: ID,
+
     lfi_proc: *mut liblfi::LFILinuxProc,
     lfi_thread: *mut liblfi::LFILinuxThread,
     lfi_box: *mut liblfi::LFIBox,
@@ -114,6 +139,25 @@ pub struct OGLFISysVAMD64Runtime<ID: OGID> {
     // `execute` hook and valid for the single call to `invoke` within its
     // callback closure:
     invoke_lfi_regs_ptr: UnsafeCell<*mut liblfi::LFIRegs>,
+
+    // Static callbacks set up and registered for the foreign library. Only
+    // populated with the `enable_boxrt_allow_revoke` feature enabled.
+    //
+    // Tuples of
+    // - pointer as exposed to the foreign library
+    // - pinned closure_ffi callback function
+    og_boxrt_callback_allow: Option<(
+        *mut c_void,
+        Pin<Box<closure_ffi::UntypedBareFnMut<dyn closure_ffi::traits::Any>>>,
+    )>,
+    og_boxrt_callback_revoke: Option<(
+        *mut c_void,
+        Pin<Box<closure_ffi::UntypedBareFnMut<dyn closure_ffi::traits::Any>>>,
+    )>,
+
+    // Resolved symbols in the foreign library:
+    box_sym_malloc: Cell<Option<*const ()>>,
+    box_sym_free: Cell<Option<*const ()>>,
 
     // -------------------------------------------------------------------------
     // Pinned objects, pointers to which we pass into the sandbox and
@@ -129,12 +173,24 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         lfi_library: &[u8],
         program_name: CString,
         arguments: impl Iterator<Item = CString>,
+        enable_boxrt_allow_revoke: bool,
         id: ID,
     ) -> OGResult<(
         Self,
         AllocScope<'static, <Self as OGRuntime>::AllocTracker<'static>, ID>,
         AccessScope<ID>,
     )> {
+        if enable_boxrt_allow_revoke && omniglot::ALLOC_SCOPE_SEPARATE_ACTIVE_VALID_LT {
+            log::error!(
+                "Cannot create new Omniglot LFI runtime with \
+		 enable_boxrt_allow_revoke when the \
+		 `alloc_scope_separate_active_valid_lt` feature is enabled on \
+		 the `omniglot` crate."
+            );
+            // TODO: fix error variant. Can we extend OGResult somehow?
+            return Err(OGError::InternalError);
+        }
+
         log::debug!(
             "Creating new LFI sandbox for LFI library of {} bytes with program name {:?}",
             lfi_library.len(),
@@ -180,7 +236,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             log::error!("Failed to initialize liblfi engine");
             return Err(OGError::InternalError);
         }
-        log::trace!("Initialized liblfi engine");
+        log::trace!("Initialized liblfi engine with lfi_linux_lib_init");
 
         let lfi_proc: *mut liblfi::LFILinuxProc =
             unsafe { liblfi::lfi_proc_new(liblfi::lfi_linux_lib_engine()) };
@@ -206,11 +262,6 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
 
         // Initialize return and callbacks:
         unsafe { liblfi::lfi_box_init_ret(liblfi::lfi_proc_box(lfi_proc)) };
-        let lfi_box_cbinit_res = unsafe { liblfi::lfi_box_cbinit(liblfi::lfi_proc_box(lfi_proc)) };
-        if !lfi_box_cbinit_res {
-            log::error!("Failed to initialize LFI callbacks");
-            return Err(OGError::InternalError);
-        }
 
         let pinned_arguments = arguments
             .map(|arg| Box::pin(ForcePin::new(arg)))
@@ -258,50 +309,122 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         let lfi_box_info: liblfi::LFIBoxInfo = unsafe { liblfi::lfi_box_info(lfi_box) };
         let box_base: *mut c_void = lossless_usize_to_c_void_ptr(lfi_box_info.base);
 
+        // State shared with callback handlers (Rc'ed, to produce static,
+        // non-stacked callbacks):
+        let callback_panic_object = Rc::new(RefCell::new(None));
+        let callback_alloc_chain_head = Rc::new(Cell::new(std::ptr::null()));
+
+        // Build `og_boxrt` callbacks for foreign code, such as to inform the
+        // runtime that certain memory is or is not to be accessed by the host:
+        let og_boxrt_callback_allow = if enable_boxrt_allow_revoke {
+            Some(
+                Self::setup_static_callback(
+                    id.get_imprint(),
+                    lfi_ctx,
+                    lfi_box,
+                    callback_panic_object.clone(),
+                    callback_alloc_chain_head.clone(),
+                    // TODO: why do we need to wrap this in a closure? if not, we get a
+                    // "the parameter type `ID` may not live long enough" error
+                    Box::new(
+                        |ctx: &OGLFISysVAMD64CallbackContext,
+                         ret: &mut OGLFISysVAMD64CallbackReturn,
+                         alloc: &mut AllocScope<'_, AllocChain<'_>, ID>,
+                         access: &mut AccessScope<ID>| {
+                            Self::og_boxrt_callback_allow(ctx, ret, alloc, access)
+                        },
+                    ),
+                )
+                .expect("Failed to set up LFI box `allow` callback!"),
+            )
+        } else {
+            None
+        };
+
+        let og_boxrt_callback_revoke = if enable_boxrt_allow_revoke {
+            Some(
+                Self::setup_static_callback(
+                    id.get_imprint(),
+                    lfi_ctx,
+                    lfi_box,
+                    callback_panic_object.clone(),
+                    callback_alloc_chain_head.clone(),
+                    // TODO: why do we need to wrap this in a closure? if not, we get a
+                    // "the parameter type `ID` may not live long enough" error
+                    Box::new(
+                        |ctx: &OGLFISysVAMD64CallbackContext,
+                         ret: &mut OGLFISysVAMD64CallbackReturn,
+                         alloc: &mut AllocScope<'_, AllocChain<'_>, ID>,
+                         access: &mut AccessScope<ID>| {
+                            Self::og_boxrt_callback_revoke(ctx, ret, alloc, access)
+                        },
+                    ),
+                )
+                .expect("Failed to set up LFI box `revoke` callback!"),
+            )
+        } else {
+            None
+        };
+
+        // Construct the runtime, and scopes. We then use these to
+        // finish initializing the LFI box by calling the
+        // Omniglot-specific intiailization function, if available:
         let id_imprint = id.get_imprint();
+        let rt = OGLFISysVAMD64Runtime {
+            id,
 
-        Ok((
-            OGLFISysVAMD64Runtime {
-                id,
+            callback_panic_object,
+            callback_alloc_chain_head,
 
-                callback_panic_object: Rc::new(RefCell::new(None)),
-                callback_alloc_chain_head: Rc::new(Cell::new(std::ptr::null_mut())),
+            og_boxrt_callback_allow,
+            og_boxrt_callback_revoke,
 
-                lfi_proc,
-                lfi_thread,
-                lfi_box,
-                lfi_ctx,
+            box_sym_malloc: Cell::new(None),
+            box_sym_free: Cell::new(None),
 
-                box_base,
+            lfi_proc,
+            lfi_thread,
+            lfi_box,
+            lfi_ctx,
 
-                invoke_lfi_regs_ptr: UnsafeCell::new(std::ptr::null_mut()),
+            box_base,
 
-                pinned_program_name,
-                pinned_arguments,
-                pinned_argv,
-                pinned_envp,
-            },
-            unsafe { AllocScope::new(AllocChain::Base, id_imprint) },
-            unsafe { AccessScope::new(id_imprint) },
-        ))
+            invoke_lfi_regs_ptr: UnsafeCell::new(std::ptr::null_mut()),
+
+            pinned_program_name,
+            pinned_arguments,
+            pinned_argv,
+            pinned_envp,
+        };
+        let mut alloc_scope = unsafe {
+            AllocScope::new(
+                AllocChain::Base(RefCell::new(AllowedRegions::new())),
+                id_imprint,
+            )
+        };
+        let mut access_scope = unsafe { AccessScope::new(id_imprint) };
+
+        rt.resolve_box_symbols();
+        rt.og_boxrt_init(&mut alloc_scope, &mut access_scope)?;
+
+        Ok((rt, alloc_scope, access_scope))
     }
 
     fn lfi_callback_handler<'a, C>(
         id_imprint: <<Self as OGRuntime>::ID as OGID>::Imprint,
         lfi_ctx: *mut liblfi::LFIContext,
-        callback_alloc_chain_head: impl Borrow<Cell<*const ()>> + 'a,
         callback_panic_object: impl Borrow<RefCell<Option<Box<dyn std::any::Any + Send + 'static>>>>
         + 'a,
-        mut callback: &'a mut C,
+        callback_alloc_chain_head: impl Borrow<Cell<*const ()>> + 'a,
+        mut callback: C,
     ) -> closure_ffi::UntypedBareFnMut<dyn closure_ffi::traits::Any + 'a>
     where
         C: FnMut(
-            &<Self as OGRuntime>::CallbackContext,
-            &mut <Self as OGRuntime>::CallbackReturn,
-            &mut AllocScope<'_, <Self as OGRuntime>::AllocTracker<'_>, <Self as OGRuntime>::ID>,
-            &mut AccessScope<<Self as OGRuntime>::ID>,
-        ),
-        <ID as OGID>::Imprint: 'a,
+                &<Self as OGRuntime>::CallbackContext,
+                &mut <Self as OGRuntime>::CallbackReturn,
+                &mut AllocScope<'_, <Self as OGRuntime>::AllocTracker<'_>, <Self as OGRuntime>::ID>,
+                &mut AccessScope<<Self as OGRuntime>::ID>,
+            ) + 'a,
     {
         closure_ffi::BareFnMut::new_c(move || {
             // Extract the argument registers and current foreign stack pointer
@@ -385,11 +508,17 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             // bound on this ID type?
             let unwind_safe_id_imprint = std::panic::AssertUnwindSafe(id_imprint);
 
+            // TODO: reason about safety
+            let unwind_safe_execute_hook_alloc_chain_head =
+                std::panic::AssertUnwindSafe(execute_hook_alloc_chain_head);
+
             let cb_unwind_res = std::panic::catch_unwind(move || {
                 // Required to move the `AssertUnwindSafe`s itself and not
                 // the contained values:
                 let unwind_safe_callback: std::panic::AssertUnwindSafe<_> = unwind_safe_callback;
                 let unwind_safe_id_imprint = unwind_safe_id_imprint;
+                let unwind_safe_execute_hook_alloc_chain_head =
+                    unwind_safe_execute_hook_alloc_chain_head;
 
                 // Create a new `AllocScope` that extends the `AllocChain` held
                 // by the execute hook. This is the only accessible alloc scope
@@ -399,7 +528,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                 // executed.
                 let mut alloc_scope: AllocScope<'_, AllocChain<'_>, ID> = unsafe {
                     AllocScope::new(
-                        AllocChain::Cons(execute_hook_alloc_chain_head),
+                        AllocChain::Cons(unwind_safe_execute_hook_alloc_chain_head.0),
                         unwind_safe_id_imprint.0,
                     )
                 };
@@ -492,6 +621,283 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             }
         })
         .into_untyped()
+    }
+
+    fn setup_static_callback<'a, C>(
+        id_imprint: <<Self as OGRuntime>::ID as OGID>::Imprint,
+        lfi_ctx: *mut liblfi::LFIContext,
+        lfi_box: *mut liblfi::LFIBox,
+        callback_panic_object: Rc<RefCell<Option<Box<dyn std::any::Any + Send + 'static>>>>,
+        callback_alloc_chain_head: Rc<Cell<*const ()>>,
+        callback: C,
+    ) -> OGResult<(
+        *mut c_void,
+        Pin<Box<closure_ffi::UntypedBareFnMut<dyn closure_ffi::traits::Any>>>,
+    )>
+    where
+        C: FnMut(
+                &<Self as OGRuntime>::CallbackContext,
+                &mut <Self as OGRuntime>::CallbackReturn,
+                &mut AllocScope<'_, <Self as OGRuntime>::AllocTracker<'_>, <Self as OGRuntime>::ID>,
+                &mut AccessScope<<Self as OGRuntime>::ID>,
+            ) + 'static,
+    {
+        let lfi_callback_handler = Box::pin(Self::lfi_callback_handler(
+            id_imprint,
+            lfi_ctx,
+            callback_panic_object,
+            callback_alloc_chain_head,
+            callback,
+        ));
+
+        // Register the callback with LFI, and ensure that before invoking this
+        // callback, LFI saves argument registers and the current LFI stack to
+        // the LFIRegs struct, and uses it to restore the return regs before
+        // switching back to sandbox code.
+        let lfi_cb_ptr = unsafe {
+            liblfi::lfi_box_register_cb_struct(
+                lfi_box,
+                // This produces a raw function pointer that is valid for the
+                // lifetime of `lfi_callback_handler`, which we pinned to the
+                // heap so we can move it out of this function, and have its
+                // pointer remain valid.
+                lfi_callback_handler.bare() as *mut c_void,
+            )
+        };
+        if lfi_cb_ptr == std::ptr::null_mut() {
+            // Returns NULL if there are no more callback slots available or if
+            // callback initialization failed.
+            //
+            // Returning early will deallocate the BareFnMut callback as well.
+            return Err(OGError::SetupCallbackInsufficientSlots);
+        }
+
+        // Return the pinned closure FFI callback, and the LFI callback
+        // pointer. The caller of this function must be careful to deregister
+        // the callback from LFI first, before dropping the
+        // `lfi_callback_handler`:
+        Ok((lfi_cb_ptr, lfi_callback_handler))
+    }
+
+    fn og_boxrt_callback_allow(
+        ctx: &OGLFISysVAMD64CallbackContext,
+        ret: &mut OGLFISysVAMD64CallbackReturn,
+        alloc: &mut AllocScope<'_, AllocChain<'_>, ID>,
+        _access: &mut AccessScope<ID>,
+    ) {
+        let start = *ctx.arg_regs.get(0).unwrap() as *mut ();
+        let len = *ctx.arg_regs.get(1).unwrap();
+        let mutable = *ctx.arg_regs.get(2).unwrap() != 0;
+
+        let success = alloc
+            .tracker()
+            .allowed_regions()
+            .borrow_mut()
+            .insert(start, len, mutable);
+
+        if !success {
+            log::warn!(
+                "og_boxrt_callback_allow: tried to double allow region for start = {} {:p}, ignored",
+                if mutable { "*mut" } else { "*const" },
+                start
+            );
+        } else {
+            log::trace!(
+                "og_boxrt_callback_allow: allowed region start = {} {:p}, len = {}",
+                if mutable { "*mut" } else { "*const" },
+                start,
+                len
+            );
+        }
+
+        *ret.ret_regs.get_mut(0).unwrap() = success as usize;
+    }
+
+    fn og_boxrt_callback_revoke(
+        ctx: &OGLFISysVAMD64CallbackContext,
+        ret: &mut OGLFISysVAMD64CallbackReturn,
+        alloc: &mut AllocScope<'_, AllocChain<'_>, ID>,
+        _access: &mut AccessScope<ID>,
+    ) {
+        let start = *ctx.arg_regs.get(0).unwrap() as *mut ();
+
+        let success = alloc.tracker().allowed_regions().borrow_mut().remove(start);
+
+        if !success {
+            log::warn!(
+                "og_boxrt_callback_revoke: tried to revoke non-existent allow region for start = *{:p}",
+                start
+            );
+        } else {
+            log::trace!(
+                "og_boxrt_callback_revoke: revoked region start = *{:p}",
+                start,
+            );
+        }
+
+        *ret.ret_regs.get_mut(0).unwrap() = success as usize;
+    }
+
+    fn og_boxrt_init(
+        &self,
+        alloc_scope: &mut AllocScope<
+            '_,
+            <Self as OGRuntime>::AllocTracker<'_>,
+            <Self as OGRuntime>::ID,
+        >,
+        access_scope: &mut AccessScope<<Self as OGRuntime>::ID>,
+    ) -> OGResult<()> {
+        // Try to find the OG boxrt initialization symbol. If not found, we skip
+        // initialization.
+        let og_boxrt_init_symbol_name = c"og_boxrt_init";
+        let Some(og_boxrt_init_sym) = self.try_resolve_symbol(og_boxrt_init_symbol_name) else {
+            log::warn!(
+                "Couldn't resolve {:?} symbol, not initializing og_boxrt state",
+                og_boxrt_init_symbol_name,
+            );
+            return Ok(());
+        };
+
+        #[unsafe(naked)]
+        unsafe extern "C" fn og_boxrt_init_trampoline<
+            // No stack spill, runtime passed in third argument register:
+            RT: SysVAMD64Rt<0, AREG2<SysVAMD64ABI>>,
+        >(
+            // Actual C function arguments:
+            allow_cb: *mut c_void,
+            revoke_cb: *mut c_void,
+            // Additional Omniglot trampoline arguments:
+            _rt: &RT,
+            _fnptr_unused: *const (), // not used for LFI
+            _resptr: &mut <RT as SysVAMD64BaseRt>::InvokeRes<c_void>,
+        ) {
+            core::arch::naked_asm!(
+                "jmp {invoke}",
+                invoke = sym RT::invoke,
+            );
+        }
+
+        let mut res = OGLFISysVAMD64InvokeRes::<Self, c_void>::new();
+        self.execute(og_boxrt_init_sym, alloc_scope, access_scope, || unsafe {
+            og_boxrt_init_trampoline(
+                self.og_boxrt_callback_allow
+                    .as_ref()
+                    .map_or(std::ptr::null_mut(), |cb| cb.0),
+                self.og_boxrt_callback_revoke
+                    .as_ref()
+                    .map_or(std::ptr::null_mut(), |cb| cb.0),
+                self,
+                core::ptr::null(),
+                &mut res,
+            );
+        })?;
+        res.into_result_registers(self)?;
+
+        Ok(())
+    }
+
+    fn try_resolve_symbol(&self, sym: &CStr) -> Option<*const ()> {
+        self.resolve_symbols(&[sym], &[]).ok().and_then(|sym_tab| {
+            self.lookup_symbol::<_, 0>(
+                0, // compact symbol table index,
+                0, // fixed offset symbol table index, unused,
+                &sym_tab,
+            )
+        })
+    }
+
+    fn resolve_box_symbols(&self) {
+        let find_first =
+            |symbols: &[&CStr]| symbols.iter().find_map(|s| self.try_resolve_symbol(s));
+
+        // For malloc, free and co, we try to find wrapped versions
+        // first, created during link time for `og_boxrt`. If not,
+        // fall back to the regular symbol names.
+        self.box_sym_malloc
+            .set(find_first(&[c"__wrap_malloc", c"malloc"]));
+        self.box_sym_free
+            .set(find_first(&[c"__wrap_free", c"free"]));
+    }
+
+    pub fn malloc(
+        &self,
+        size: usize,
+        alloc_scope: &mut AllocScope<
+            '_,
+            <Self as OGRuntime>::AllocTracker<'_>,
+            <Self as OGRuntime>::ID,
+        >,
+        access_scope: &mut AccessScope<<Self as OGRuntime>::ID>,
+    ) -> OGResult<*mut c_void> {
+        let Some(malloc_sym) = self.box_sym_malloc.get() else {
+            return Err(OGError::SymbolNotFound);
+        };
+
+        #[unsafe(naked)]
+        unsafe extern "C" fn malloc_trampoline<
+            // No stack spill, runtime passed in third argument register:
+            RT: SysVAMD64Rt<0, AREG1<SysVAMD64ABI>>,
+        >(
+            // Actual C function arguments:
+            size: usize,
+            // Additional Omniglot trampoline arguments:
+            _rt: &RT,
+            _fnptr_unused: *const (), // not used for LFI
+            _resptr: &mut <RT as SysVAMD64BaseRt>::InvokeRes<*mut c_void>,
+        ) {
+            core::arch::naked_asm!(
+                "jmp {invoke}",
+                invoke = sym RT::invoke,
+            );
+        }
+
+        let mut res = OGLFISysVAMD64InvokeRes::<Self, *mut c_void>::new();
+        self.execute(malloc_sym, alloc_scope, access_scope, || unsafe {
+            malloc_trampoline(size, self, core::ptr::null(), &mut res);
+        })?;
+
+        Ok(res.into_result_registers(self)?.valid_ptr())
+    }
+
+    pub fn free(
+        &self,
+        ptr: *mut c_void,
+        alloc_scope: &mut AllocScope<
+            '_,
+            <Self as OGRuntime>::AllocTracker<'_>,
+            <Self as OGRuntime>::ID,
+        >,
+        access_scope: &mut AccessScope<<Self as OGRuntime>::ID>,
+    ) -> OGResult<()> {
+        let Some(free_sym) = self.box_sym_free.get() else {
+            return Err(OGError::SymbolNotFound);
+        };
+
+        #[unsafe(naked)]
+        unsafe extern "C" fn free_trampoline<
+            // No stack spill, runtime passed in third argument register:
+            RT: SysVAMD64Rt<0, AREG1<SysVAMD64ABI>>,
+        >(
+            // Actual C function arguments:
+            ptr: *mut c_void,
+            // Additional Omniglot trampoline arguments:
+            _rt: &RT,
+            _fnptr_unused: *const (), // not used for LFI
+            _resptr: &mut <RT as SysVAMD64BaseRt>::InvokeRes<c_void>,
+        ) {
+            core::arch::naked_asm!(
+                "jmp {invoke}",
+                invoke = sym RT::invoke,
+            );
+        }
+
+        let mut res = OGLFISysVAMD64InvokeRes::<Self, c_void>::new();
+        self.execute(free_sym, alloc_scope, access_scope, || unsafe {
+            free_trampoline(ptr, self, core::ptr::null(), &mut res);
+        })?;
+        res.into_result_registers(self)?;
+
+        Ok(())
     }
 }
 
@@ -689,8 +1095,8 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
         let lfi_callback_handler = Self::lfi_callback_handler(
             self.id.get_imprint(),
             self.lfi_ctx,
-            &*self.callback_alloc_chain_head,
             &*self.callback_panic_object,
+            &*self.callback_alloc_chain_head,
             callback,
         );
 

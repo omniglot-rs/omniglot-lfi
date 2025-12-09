@@ -1,3 +1,5 @@
+// -*- fill-column: 80; -*-
+
 #![feature(maybe_uninit_write_slice, maybe_uninit_as_bytes)]
 
 pub mod amd64;
