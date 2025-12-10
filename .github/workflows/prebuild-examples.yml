@@ -1,0 +1,55 @@
+name: "Prebuild Example LFI Sandbox Binaries"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  # Required to create a release
+  contents: write
+
+jobs:
+  prebuild-examples:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install llvm
+
+    - name: Install LFI toolchain
+      run: |
+        wget -q https://github.com/lfi-project/lfi/releases/download/v0.11/x86_64-lfi-clang.tar.gz
+        sha256sum -c <(echo "321fc937383aaa7561a2251b476474d4a41efd16cf5cda264b0248849b6c788b  x86_64-lfi-clang.tar.gz")
+        tar -xf x86_64-lfi-clang.tar.gz
+        echo "$PWD/x86_64-lfi-clang/lfi-bin" >> $GITHUB_PATH
+
+    - name: Build brotli example
+      run: |
+        pushd ./examples/brotli/og_brotli_lfi
+        ./build.sh
+        popd
+
+    - name: Determine short Git commit ref
+      id: sha_short
+      run: |
+        GITHUB_SHA="${{ github.sha }}"
+        GITHUB_SHA_SHORT="${GITHUB_SHA:0:14}"
+        echo "sha_short=${GITHUB_SHA_SHORT}" >> $GITHUB_OUTPUT
+
+    - name: Publish prebuilt examples as GitHub pre-release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
+        tag_name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
+        body: >-
+          Pre-built LFI sandbox binaries for the example libraries
+          included in this repository. Automatically built and
+          published through GitHub Actions.
+        prerelease: true
+        files: |
+          ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
