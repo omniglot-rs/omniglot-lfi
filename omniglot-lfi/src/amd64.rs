@@ -6,6 +6,7 @@ use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::marker::{PhantomData, PhantomPinned};
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::Mutex;
 
 use log;
 
@@ -87,6 +88,125 @@ lossless_as!(lossless_u64_to_unit_ptr, u64, *mut ());
 lossless_as!(lossless_u64_to_usize, u64, usize);
 lossless_as!(lossless_usize_to_c_void_ptr, usize, *mut c_void);
 lossless_as!(lossless_usize_to_u64, usize, u64);
+
+// This holds a reference to an LFIEngine, along with the number of active
+// sandboxes for that engine. The reason why it's not a tuple of (*mut
+// liblfi::LFIEngine, usize) is because that isn't `Send`, and we thus can't put
+// it into a `Mutex`.
+struct LFIEngineSandboxes {
+    engine: *mut liblfi::LFILinuxEngine,
+    active_sandboxes: usize,
+}
+
+// *mut liblfi::LFIEngine can be safely used from different threads, so long as
+// accesses to it are behind a unique lock.
+unsafe impl Send for LFIEngineSandboxes {}
+
+// How many sandboxes each engine instance is provisioned for:
+const LFI_SANDBOXES_PER_ENGINE: usize = 16;
+
+// Global state keeping track of LFIEngines, shared between multiple Omniglot
+// runtimes. Accesses to the engines must hold this unique lock for the entire
+// duration of this object being used (such as to create a new LFIProc):
+static LFI_ENGINES: Mutex<Vec<LFIEngineSandboxes>> = Mutex::new(Vec::new());
+
+// Run a closure, passing a "free" (meaning it has at least one empty sandbox
+// slot available) LFIEngine pointer, and holding the LFI_ENGINES lock for the
+// duration of the closure. If the closure returns `true` for the first tuple
+// argument, marks one slot in the LFIEngine as being occupied.
+//
+// Returns `None` if an LFI engine couldn't be constructed.
+fn with_free_lfi_engine<R>(
+    fun: impl FnOnce(*mut liblfi::LFILinuxEngine) -> (bool, R),
+) -> Option<R> {
+    let mut lfi_engines_lg = LFI_ENGINES
+        .lock()
+        .expect("LFI_ENGINES lock poisoned, cannot proceed!");
+
+    // Try to find an LFIEngine with one free sandbox slot available:
+    let free_lfi_engine_idx = lfi_engines_lg
+        .iter()
+        .enumerate()
+        .find(|(_idx, entry)| entry.active_sandboxes < LFI_SANDBOXES_PER_ENGINE)
+        .map(|(idx, _entry)| idx);
+
+    let free_lfi_engine: &mut _ = if let Some(idx) = free_lfi_engine_idx {
+        &mut lfi_engines_lg[idx]
+    } else {
+        let engine = unsafe {
+            liblfi::lfi_new(
+                liblfi::LFIOptions {
+                    boxsize: 4 * 1024 * 1024 * 1024,
+                    pagesize: page_size::get(),
+                    verbose: false,
+                    no_verify: true,
+
+                    // Don't need compatibility with old rewriters,
+                    // this will become "true" in the future by
+                    // default:
+                    no_rtcall_nullpage: false,
+
+                    // Default values:
+                    allow_wx: false,
+                    no_init_sigaltstack: false,
+                    stores_only: false,
+                },
+                LFI_SANDBOXES_PER_ENGINE,
+            )
+        };
+
+        if engine == std::ptr::null_mut() {
+            return None;
+        }
+
+        let linux_engine = unsafe {
+            liblfi::lfi_linux_new(
+                engine,
+                liblfi::LFILinuxOptions {
+                    stacksize: 2 * 1024 * 1024,
+                    verbose: false,
+                    debug: false,
+
+                    // Default values:
+                    dir_maps: std::ptr::null_mut(),
+                    exit_unknown_syscalls: false,
+                    perf: false,
+                    sys_passthrough: false,
+                    wd: std::ptr::null(),
+                    brk_control: false,
+                    brk_size: 0,
+                },
+            )
+        };
+
+        if linux_engine == std::ptr::null_mut() {
+            return None;
+        }
+
+        // Add the newly constructed engine to the back of the vector ...
+        lfi_engines_lg.push(LFIEngineSandboxes {
+            engine: linux_engine,
+            active_sandboxes: 0,
+        });
+
+        // ... and get a mutable reference to it.
+        //
+        // TODO: use `push_mut` once that is stabilized:
+        let lfi_engines_len = lfi_engines_lg.len();
+        &mut lfi_engines_lg[lfi_engines_len - 1]
+    };
+
+    let (sandbox_created, res) = fun(free_lfi_engine.engine);
+    if sandbox_created {
+        free_lfi_engine.active_sandboxes += 1;
+    }
+
+    // Drop the lock guard here manually, to ensure we hold it across the
+    // callback:
+    std::mem::drop(lfi_engines_lg);
+
+    Some(res)
+}
 
 #[repr(C)]
 pub struct OGLFISysVAMD64Runtime<ID: OGID> {
@@ -202,54 +322,25 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             &program_name
         );
 
-        // Instantiate the LFI engine, if one does not exist.
-        let lfi_linux_lib_init_res: bool = unsafe {
-            liblfi::lfi_linux_lib_init(
-                liblfi::LFIOptions {
-                    boxsize: 4 * 1024 * 1024 * 1024,
-                    pagesize: page_size::get(),
-                    verbose: false,
-                    no_verify: true,
-
-                    // Don't need compatibility with old rewriters,
-                    // this will become "true" in the future by
-                    // default:
-                    no_rtcall_nullpage: false,
-
-                    // Default values:
-                    allow_wx: false,
-                    no_init_sigaltstack: false,
-                    stores_only: false,
-                },
-                liblfi::LFILinuxOptions {
-                    stacksize: 2 * 1024 * 1024,
-                    verbose: false,
-                    debug: false,
-
-                    // Default values:
-                    dir_maps: std::ptr::null_mut(),
-                    exit_unknown_syscalls: false,
-                    perf: false,
-                    sys_passthrough: false,
-                    wd: std::ptr::null(),
-                    brk_control: false,
-                    brk_size: 0,
-                },
-            )
-        };
-        if !lfi_linux_lib_init_res {
-            log::error!("Failed to initialize liblfi engine");
-            return Err(OGError::InternalError);
-        }
-        log::trace!("Initialized liblfi engine with lfi_linux_lib_init");
-
-        let lfi_proc: *mut liblfi::LFILinuxProc =
-            unsafe { liblfi::lfi_proc_new(liblfi::lfi_linux_lib_engine()) };
-        if lfi_proc == std::ptr::null_mut() {
-            log::error!("Failed to create LFI proc");
-            return Err(OGError::InternalError);
-        }
-        log::trace!("Created LFI process: {:p}", lfi_proc);
+        // Create an LFI Linux process within an Engine with free sandbox slots.
+        //
+        // This holds an exclusive lock over the provided LFI engine over the
+        // duration of the closure:
+        let lfi_proc = with_free_lfi_engine(|lfi_linux_engine| {
+            let lfi_proc: *mut liblfi::LFILinuxProc =
+                unsafe { liblfi::lfi_proc_new(lfi_linux_engine) };
+            if lfi_proc == std::ptr::null_mut() {
+                log::error!("Failed to create LFI proc");
+                return (false, Err(OGError::InternalError));
+            }
+            log::trace!("Created LFI process: {:p}", lfi_proc);
+            (true, Ok(lfi_proc))
+        })
+        .ok_or(
+            // `with_free_lfi_engine` returns None when there was an error
+            // instantiating the LFI engine:
+            OGError::InternalError,
+        )??;
 
         let pinned_program_name = Box::pin(ForcePin::new(program_name));
         let lfi_proc_load_res = unsafe {
