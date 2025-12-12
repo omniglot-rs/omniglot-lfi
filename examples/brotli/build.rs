@@ -3,6 +3,10 @@
 use std::path::{Path, PathBuf};
 
 fn main() {
+    println!("cargo:rerun-if-changed=./brotli.omniglot.toml");
+    println!("cargo:rerun-if-changed=./og_brotli_lfi_prebuilt.json");
+    println!("cargo:rerun-if-changed=./og_brotli_lfi");
+
     let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     // Path::new is not yet stable as const
