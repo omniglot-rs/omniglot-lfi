@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   prebuild-examples:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v6
@@ -28,7 +28,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install llvm
+        sudo apt install -y cmake llvm
 
     - name: Install LFI toolchain
       run: |
@@ -43,6 +43,17 @@ jobs:
         ./build.sh
         popd
 
+    - name: Upload prebuilt examples as Workflow Artifacts
+      uses: actions/upload-artifact@v4
+
+      # skip when running locally with `act`
+      if: ${{ !env.ACT }}
+
+      with:
+        name: prebuilt-examples
+        path: |
+          ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
+
     - name: Determine short Git commit ref
       id: sha_short
       run: |
@@ -50,16 +61,12 @@ jobs:
         GITHUB_SHA_SHORT="${GITHUB_SHA:0:14}"
         echo "sha_short=${GITHUB_SHA_SHORT}" >> $GITHUB_OUTPUT
 
-    - name: Upload prebuilt examples as Workflow Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: prebuilt-examples
-        path: |
-          ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
-
     - name: Publish prebuilt examples as GitHub pre-release
       uses: softprops/action-gh-release@v2
-      if: ${{ github.event.inputs.create-release == true }}
+
+      # only run if requested, and skip when running locally with `act`
+      if: ${{ inputs.create-release && !env.ACT}}
+
       with:
         name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
         tag_name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
