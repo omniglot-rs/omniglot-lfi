@@ -2,6 +2,15 @@ name: "Prebuild Example LFI Sandbox Binaries"
 
 on:
   workflow_dispatch:
+    inputs:
+      create-release:
+        description: >-
+          Create a GitHub release with the prebuilt binaries
+          attached. If `false`, the binaries will still be uploaded as
+          workflow outputs.
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   # Required to create a release
@@ -50,6 +59,7 @@ jobs:
 
     - name: Publish prebuilt examples as GitHub pre-release
       uses: softprops/action-gh-release@v2
+      if: ${{ github.event.inputs.create-release == true }}
       with:
         name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
         tag_name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
