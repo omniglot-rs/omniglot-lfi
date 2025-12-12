@@ -33,9 +33,13 @@ fn main() {
             &out_path.join("og_brotli_lfi_prebuilt_archive_sha256.txt"),
             // Path to the JSON manifest containing the archive's URL and
             // SHA-256 checksum:
-            &Path::new("og_brotli_lfi_prebuilt.json")
-                .canonicalize()
-                .unwrap(),
+            &fetch_prebuilt::read_archive_manifest(
+                // Archive name, for panic messages:
+                "og_brotli_lfi",
+                &Path::new("og_brotli_lfi_prebuilt.json")
+                    .canonicalize()
+                    .unwrap(),
+            ),
         );
 
         // Return path to the unpacked archive:

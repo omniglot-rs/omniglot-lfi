@@ -4,6 +4,7 @@ members = [
     "examples/add",
     "examples/brotli",
     "examples/fetch-prebuilt",
+    "examples/libpng",
     "omniglot-lfi",
     "tests",
 ]

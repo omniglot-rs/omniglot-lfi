@@ -5,28 +5,39 @@ use std::env;
 use std::io::Cursor;
 use std::path::Path;
 
+pub struct ArchiveManifest {
+    pub url: String,
+    pub sha256: Vec<u8>,
+}
+
+pub fn read_archive_manifest(archive_name: &str, archive_manifest_path: &Path) -> ArchiveManifest {
+    let prebuilt_manifest_json = std::fs::read_to_string(archive_manifest_path)
+        .unwrap_or_else(|_| panic!("Failed to read prebuilt {archive_name} archive manifest"));
+    let prebuilt_manifest = json::parse(&prebuilt_manifest_json)
+        .unwrap_or_else(|_| panic!("Failed to parse prebuilt {archive_name} archive manifest"));
+    let url = prebuilt_manifest["url"]
+        .as_str()
+        .unwrap_or_else(|| {
+            panic!("Field 'url' missing or invalid in prebuilt {archive_name} archive manifest")
+        })
+        .to_string();
+    let sha256 = hex::decode(prebuilt_manifest["sha256"].as_str().unwrap_or_else(|| {
+        panic!("Field 'sha256' missing or invalid in prebuilt {archive_name} archive manifest")
+    }))
+    .unwrap_or_else(|_| {
+        panic!("Field 'sha256' of prebuilt {archive_name} archive manifest is not valid hex")
+    });
+
+    ArchiveManifest { url, sha256 }
+}
+
 pub fn fetch_prebuilt(
     archive_name: &str,
     archive_path_env_var: &str,
     target_path: &Path,
     target_archive_checksum_file_path: &Path,
-    archive_manifest_path: &Path,
+    archive_manifest: &ArchiveManifest,
 ) {
-    let prebuilt_manifest_json = std::fs::read_to_string(archive_manifest_path)
-        .unwrap_or_else(|_| panic!("Failed to read prebuilt {archive_name} archive manifest"));
-    let prebuilt_manifest = json::parse(&prebuilt_manifest_json)
-        .unwrap_or_else(|_| panic!("Failed to parse prebuilt {archive_name} archive manifest"));
-    let prebuilt_url = prebuilt_manifest["url"].as_str().unwrap_or_else(|| {
-        panic!("Field 'url' missing or invalid in prebuilt {archive_name} archive manifest")
-    });
-    let prebuilt_expected_sha256 =
-        hex::decode(prebuilt_manifest["sha256"].as_str().unwrap_or_else(|| {
-            panic!("Field 'sha256' missing or invalid in prebuilt {archive_name} archive manifest")
-        }))
-        .unwrap_or_else(|_| {
-            panic!("Field 'sha256' of prebuilt {archive_name} archive manifest is not valid hex")
-        });
-
     // Ensure that the checksum of the unpacked file corresponds to the one we
     // expect, otherwise remove the `target_path` and re-fetch / unpack the
     // archive:
@@ -39,7 +50,7 @@ pub fn fetch_prebuilt(
             // archive, attempt to delete:
             let _ = std::fs::remove_dir_all(target_path);
         }
-        Some(csum) if csum != prebuilt_expected_sha256 => {
+        Some(csum) if csum != archive_manifest.sha256 => {
             // Checksum file does not exist or contains incorrect checksum,
             // re-fetch:
             println!(
@@ -47,7 +58,7 @@ pub fn fetch_prebuilt(
 		 archive with different checksum, re-fetching (expected {} \
 		 vs. cached {})",
                 archive_name,
-                hex::encode(&prebuilt_expected_sha256),
+                hex::encode(&archive_manifest.sha256),
                 hex::encode(csum)
             );
             std::fs::remove_file(target_archive_checksum_file_path).unwrap();
@@ -79,9 +90,9 @@ pub fn fetch_prebuilt(
             Err(_) => {
                 println!(
                     "cargo:warning=Using prebuilt {} archive from {}",
-                    archive_name, prebuilt_url
+                    archive_name, archive_manifest.url,
                 );
-                reqwest::blocking::get(prebuilt_url)
+                reqwest::blocking::get(&archive_manifest.url)
                     .unwrap_or_else(|_| {
                         panic!("Failed to download prebuilt {archive_name} archive")
                     })
@@ -96,10 +107,10 @@ pub fn fetch_prebuilt(
         let mut hasher = Sha256::new();
         hasher.update(&prebuilt_archive_bytes);
         let prebuilt_actual_sha256 = hasher.finalize();
-        if *prebuilt_actual_sha256 != *prebuilt_expected_sha256 {
+        if *prebuilt_actual_sha256 != *archive_manifest.sha256 {
             panic!(
                 "SHA256 mismatch for prebuilt archive. Expected {}, got {}",
-                hex::encode(prebuilt_expected_sha256),
+                hex::encode(&archive_manifest.sha256),
                 hex::encode(prebuilt_actual_sha256),
             );
         }
