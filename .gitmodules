@@ -1,3 +1,9 @@
 [submodule "examples/brotli/og_brotli_lfi/brotli_src"]
 	path = examples/brotli/og_brotli_lfi/brotli_src
 	url = https://github.com/google/brotli.git
+[submodule "examples/libpng/og_libpng_lfi/libpng_src"]
+	path = examples/libpng/og_libpng_lfi/libpng_src
+	url = https://github.com/pnggroup/libpng
+[submodule "examples/libpng/og_libpng_lfi/zlib_src"]
+	path = examples/libpng/og_libpng_lfi/zlib_src
+	url = https://github.com/madler/zlib
