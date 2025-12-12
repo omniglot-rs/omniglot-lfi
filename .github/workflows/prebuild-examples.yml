@@ -41,6 +41,13 @@ jobs:
         GITHUB_SHA_SHORT="${GITHUB_SHA:0:14}"
         echo "sha_short=${GITHUB_SHA_SHORT}" >> $GITHUB_OUTPUT
 
+    - name: Upload prebuilt examples as Workflow Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: prebuilt-examples
+        path: |
+          ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
+
     - name: Publish prebuilt examples as GitHub pre-release
       uses: softprops/action-gh-release@v2
       with:
