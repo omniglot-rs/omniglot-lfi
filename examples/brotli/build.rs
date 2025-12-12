@@ -1,12 +1,9 @@
 // -*- fill-column: 80; -*-
 
-use sha2::{Digest, Sha256};
-use std::env;
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 fn main() {
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 
     // Path::new is not yet stable as const
     const LOCAL_OG_BROTLI_LFI_BUILD_DIR: &str = "./og_brotli_lfi/build";
@@ -21,107 +18,27 @@ fn main() {
         PathBuf::from(LOCAL_OG_BROTLI_LFI_BUILD_DIR)
     } else {
         let target_path = out_path.join("og_brotli_lfi_prebuilt");
-        let target_archive_checksum_file =
-            out_path.join("og_brotli_lfi_prebuilt_archive_sha256.txt");
 
-        let prebuilt_manifest_json = std::fs::read_to_string("og_brotli_lfi_prebuilt.json")
-            .expect("Failed to read prebuilt og_brotli_lfi archive manifest");
-        let prebuilt_manifest = json::parse(&prebuilt_manifest_json)
-            .expect("Failed to parse prebuilt og_brotli_lfi archive manifest");
-        let prebuilt_url = prebuilt_manifest["url"]
-            .as_str()
-            .expect("Field 'url' missing or invalid in prebuilt og_brotli_lfi archive manifest");
-        let prebuilt_expected_sha256 = hex::decode(prebuilt_manifest["sha256"].as_str().expect(
-            "Field 'sha256' missing or invalid in prebuilt og_brotli_lfi archive manifest",
-        ))
-        .expect("Field 'sha256' of prebuilt og_brotli_lfi archive manifest is not valid hex");
+        fetch_prebuilt::fetch_prebuilt(
+            // Archive name:
+            "og_brotli_lfi",
+            // Archive path environment variable. If this is set, then the
+            // archive will be copied from this path, otherwise it will be
+            // fetched from the URL specified in the manifest:
+            "OG_BROTLI_LFI_PREBUILT_ARCHIVE",
+            // Target path, to unpack the archive at:
+            &target_path,
+            // Path to store the checksum of the unpacked archive, used for
+            // caching purposes:
+            &out_path.join("og_brotli_lfi_prebuilt_archive_sha256.txt"),
+            // Path to the JSON manifest containing the archive's URL and
+            // SHA-256 checksum:
+            &Path::new("og_brotli_lfi_prebuilt.json")
+                .canonicalize()
+                .unwrap(),
+        );
 
-        // Ensure that the checksum of the unpacked file corresponds to the one
-        // we expect, otherwise remove the `target_path` and re-fetch / unpack
-        // the archive:
-        let cached_csum = std::fs::read_to_string(&target_archive_checksum_file)
-            .ok()
-            .and_then(|csum_str| hex::decode(csum_str).ok());
-        match cached_csum {
-            None => {
-                // No cached checksum written. We may have a partially extracted
-                // archive, attempt to delete:
-                let _ = std::fs::remove_dir_all(&target_path);
-            }
-            Some(csum) if csum != prebuilt_expected_sha256 => {
-                // Checksum file does not exist or contains incorrect checksum, re-fetch:
-                println!(
-                    "cargo:warning=Cached og_brotli_lfi was unpacked from \
-		     archive with different checksum, re-fetching (expected {} \
-		     vs. cached {})",
-                    hex::encode(&prebuilt_expected_sha256),
-                    hex::encode(csum)
-                );
-                std::fs::remove_file(&target_archive_checksum_file).unwrap();
-                let _ = std::fs::remove_dir_all(&target_path);
-            }
-            Some(_) => {
-                // Cached & unpacked archive either does not exist or is
-                // current, do nothing.
-            }
-        }
-
-        // Re-fetch if `target_path` did not exist (or we've just deleted it):
-        if target_path.exists() {
-            println!("cargo:warning=Using cached og_brotli_lfi archive");
-        } else {
-            let prebuilt_archive_bytes = match env::var("OG_BROTLI_LFI_PREBUILT_ARCHIVE") {
-                Ok(path) => {
-                    println!(
-                        "cargo:warning=Using prebuilt og_brotli_lfi archive from {}",
-                        path
-                    );
-                    std::fs::read(path).expect(
-			"Failed to read prebuilt og_brotli_lfi archive from OG_BROTLI_LFI_PREBUILT_ARCHIVE",
-		    )
-                }
-                Err(_) => {
-                    println!(
-                        "cargo:warning=Using prebuilt og_brotli_lfi archive from {}",
-                        prebuilt_url
-                    );
-                    reqwest::blocking::get(prebuilt_url)
-                        .expect("Failed to download prebuilt archive")
-                        .bytes()
-                        .expect("Failed to read response bytes")
-                        .to_vec()
-                }
-            };
-
-            let mut hasher = Sha256::new();
-            hasher.update(&prebuilt_archive_bytes);
-            let prebuilt_actual_sha256 = hasher.finalize();
-            if *prebuilt_actual_sha256 != *prebuilt_expected_sha256 {
-                panic!(
-                    "SHA256 mismatch for prebuilt archive. Expected {}, got {}",
-                    hex::encode(prebuilt_expected_sha256),
-                    hex::encode(prebuilt_actual_sha256),
-                );
-            }
-
-            // Extract archive
-            let prebuilt_archive_tar =
-                flate2::read::GzDecoder::new(Cursor::new(prebuilt_archive_bytes));
-            let mut prebuilt_archive = tar::Archive::new(prebuilt_archive_tar);
-            prebuilt_archive
-                .unpack(&target_path)
-                .expect("Failed to unpack archive");
-
-            // Write the checksum of the archive to
-            // `target_archive_checksum_file`, which allows us to avoid fetching
-            // the archive repeatedly if the checksum doesn't change:
-            std::fs::write(
-                &target_archive_checksum_file,
-                hex::encode(prebuilt_actual_sha256).as_bytes(),
-            )
-            .unwrap();
-        }
-
+        // Return path to the unpacked archive:
         target_path
     };
 

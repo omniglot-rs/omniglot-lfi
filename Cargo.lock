@@ -485,6 +485,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fetch-prebuilt"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "hex",
+ "json",
+ "reqwest",
+ "sha2",
+ "tar",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1145,15 +1157,10 @@ dependencies = [
  "bindgen 0.69.4",
  "criterion",
  "env_logger",
- "flate2",
- "hex",
- "json",
+ "fetch-prebuilt",
  "omniglot",
  "omniglot-lfi",
  "rand",
- "reqwest",
- "sha2",
- "tar",
 ]
 
 [[package]]

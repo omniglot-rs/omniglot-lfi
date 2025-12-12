@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "examples/add",
     "examples/brotli",
+    "examples/fetch-prebuilt",
     "omniglot-lfi",
     "tests",
 ]
