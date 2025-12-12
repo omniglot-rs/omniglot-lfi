@@ -1,5 +1,6 @@
 // -*- fill-column: 80; -*-
 
+use std::ffi::c_void;
 /// Tests exercising stack overflow cases during invoke.
 ///
 /// When invoking a foreign function, the invoke trampoline copies STACK_SPILL
@@ -24,17 +25,16 @@
 ///   boundaries. However, because `STACK_SPILL` is a constant, we cannot do
 ///   this at runtime.
 use std::ffi::CStr;
-use std::ffi::c_void;
 
-use omniglot::OGError;
 use omniglot::abi::calling_convention::AREG0;
 use omniglot::abi::sysv_amd64::SysVAMD64ABI;
 use omniglot::id::OGID;
 use omniglot::markers::{AccessScope, AllocScope};
-use omniglot::rt::OGRuntime;
 use omniglot::rt::sysv_amd64::SysVAMD64BaseRt;
 use omniglot::rt::sysv_amd64::SysVAMD64InvokeRes;
 use omniglot::rt::sysv_amd64::SysVAMD64Rt;
+use omniglot::rt::OGRuntime;
+use omniglot::OGError;
 
 use omniglot_lfi::amd64::{OGLFISysVAMD64InvokeRes, OGLFISysVAMD64Runtime};
 

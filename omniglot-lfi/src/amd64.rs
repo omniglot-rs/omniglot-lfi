@@ -2,7 +2,7 @@
 
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell, UnsafeCell};
-use std::ffi::{CStr, CString, c_char, c_int, c_void};
+use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::marker::{PhantomData, PhantomPinned};
 use std::pin::Pin;
 use std::rc::Rc;
@@ -10,7 +10,7 @@ use std::sync::Mutex;
 
 use log;
 
-use omniglot::abi::calling_convention::{AREG0, AREG1, AREG2, AREG3, AREG4, AREG5, Stacked};
+use omniglot::abi::calling_convention::{Stacked, AREG0, AREG1, AREG2, AREG3, AREG4, AREG5};
 use omniglot::abi::sysv_amd64::SysVAMD64ABI;
 use omniglot::foreign_memory::og_copy::OGCopy;
 use omniglot::foreign_memory::og_ret::OGRet;
@@ -514,7 +514,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         id_imprint: <<Self as OGRuntime>::ID as OGID>::Imprint,
         lfi_ctx: *mut liblfi::LFIContext,
         callback_panic_object: impl Borrow<RefCell<Option<Box<dyn std::any::Any + Send + 'static>>>>
-        + 'a,
+            + 'a,
         callback_alloc_chain_head: impl Borrow<Cell<*const ()>> + 'a,
         mut callback: C,
     ) -> closure_ffi::UntypedBareFnMut<dyn closure_ffi::traits::Any + 'a>

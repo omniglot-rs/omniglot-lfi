@@ -8,6 +8,6 @@
 
   programs.rustfmt = {
     enable = true;
-    edition = "2024";
+    edition = "2021";
   };
 }
