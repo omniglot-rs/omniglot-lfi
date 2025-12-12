@@ -61,11 +61,6 @@
           }
         );
 
-        rustPlatform = pkgs.makeRustPlatform {
-          rustc = rustToolchain;
-          cargo = rustToolchain;
-        };
-
         craneLib = (crane.mkLib pkgs).overrideToolchain (_p: rustToolchain);
 
         cleanedRustSrc =
