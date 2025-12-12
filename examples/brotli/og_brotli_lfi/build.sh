@@ -2,24 +2,34 @@
 
 set -xe
 
-LFI_TOOLCHAIN_PREFIX=x86_64_lfi-linux-musl
+LFI_TOOLCHAIN_PATH="$1"
+LFI_TOOLCHAIN_PREFIX="x86_64_lfi-linux-musl-"
 
-rm -rf ./build
-mkdir -p ./build/brotli
-pushd ./build/brotli
-cmake \
-    -DBUILD_SHARED_LIBS=OFF \
-    -D"CMAKE_C_COMPILER=${LFI_TOOLCHAIN_PREFIX}-clang" \
-    -D"CMAKE_CXX_COMPILER=${LFI_TOOLCHAIN_PREFIX}-clang++" \
-    -D"CMAKE_LINKER=${LFI_TOOLCHAIN_PREFIX}-ld" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=./install \
-    ../../brotli_src
-cmake --build . --config Release --target install
-popd
+HOST_TOOLCHAIN_PATH="$2"
+HOST_TOOLCHAIN_PREFIX="x86_64-unknown-linux-musl-"
 
-function buildVariant() {
+function buildBrotli {
+    TOOLCHAIN_PREFIX="$1"
+    SUFFIX="$2"
+
+    mkdir -p "./build/brotli_${SUFFIX}"
+    pushd "./build/brotli_${SUFFIX}"
+    cmake \
+        -DBUILD_SHARED_LIBS=OFF \
+        -D"CMAKE_C_COMPILER=${TOOLCHAIN_PREFIX}clang" \
+        -D"CMAKE_CXX_COMPILER=${TOOLCHAIN_PREFIX}clang++" \
+        -D"CMAKE_LINKER=${TOOLCHAIN_PREFIX}ld" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=./install \
+        ../../brotli_src
+    cmake --build . --config Release --target install
+    popd
+}
+
+function buildOGLFIProgram() {
     VARIANT="$1"
+    TOOLCHAIN_PREFIX="$2"
+    BROTLI_SUFFIX="$3"
 
     VARIANT_CFLAGS=""
     if [ "${VARIANT}" == "auto_allow_revoke" ]; then
@@ -27,7 +37,7 @@ function buildVariant() {
     fi
 
     # Compile source files:
-    "${LFI_TOOLCHAIN_PREFIX}-clang" \
+    "${TOOLCHAIN_PREFIX}clang" \
         -Wall -Werror \
         ${VARIANT_CFLAGS} \
         -o "./build/og_boxrt_${VARIANT}.o" \
@@ -37,14 +47,14 @@ function buildVariant() {
     # Create object file archive:
     rm -f "./build/og_boxrt_${VARIANT}.a"
     llvm-ar rcs "./build/og_boxrt_${VARIANT}.a" \
-        "./build/og_boxrt_${VARIANT}.o"
+            "./build/og_boxrt_${VARIANT}.o"
 
     # Link, wrapping memory allocation functions:
-    "${LFI_TOOLCHAIN_PREFIX}-clang" \
+    "${TOOLCHAIN_PREFIX}clang" \
         -Wl,--whole-archive "./build/og_boxrt_${VARIANT}.a" \
-        -Wl,--whole-archive ./build/brotli/install/lib/libbrotlicommon.a \
-        -Wl,--whole-archive ./build/brotli/install/lib/libbrotlienc.a \
-        -Wl,--whole-archive ./build/brotli/install/lib/libbrotlidec.a \
+        -Wl,--whole-archive "./build/brotli_${BROTLI_SUFFIX}/install/lib/libbrotlicommon.a" \
+        -Wl,--whole-archive "./build/brotli_${BROTLI_SUFFIX}/install/lib/libbrotlienc.a" \
+        -Wl,--whole-archive "./build/brotli_${BROTLI_SUFFIX}/install/lib/libbrotlidec.a" \
         -Wl,--no-whole-archive \
         -Wl,--export-dynamic \
         -lboxrt \
@@ -60,12 +70,18 @@ function buildVariant() {
         -o "./build/og_brotli_${VARIANT}.lfi"
 }
 
-buildVariant "default"
-buildVariant "auto_allow_revoke"
+rm -rf ./build
+
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildBrotli "${LFI_TOOLCHAIN_PREFIX}" "lfi"
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "default" "${LFI_TOOLCHAIN_PREFIX}" "lfi"
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi"
+
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildBrotli "${HOST_TOOLCHAIN_PREFIX}" "native"
 
 pushd ./build
 tar -czvf ./og_brotli_lfi.tar.gz \
     ./og_brotli_default.lfi \
     ./og_brotli_auto_allow_revoke.lfi \
-    ./brotli/install
+    ./brotli_lfi/install \
+    ./brotli_native/install
 popd

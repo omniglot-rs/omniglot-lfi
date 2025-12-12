@@ -21,26 +21,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: true
-
     - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y cmake llvm
 
-    - name: Install LFI toolchain
+    - name: Install LFI clang toolchain
       run: |
+        pushd "${RUNNER_TEMP}"
         wget -q https://github.com/lfi-project/lfi/releases/download/v0.11/x86_64-lfi-clang.tar.gz
         sha256sum -c <(echo "321fc937383aaa7561a2251b476474d4a41efd16cf5cda264b0248849b6c788b  x86_64-lfi-clang.tar.gz")
         tar -xf x86_64-lfi-clang.tar.gz
-        echo "$PWD/x86_64-lfi-clang/lfi-bin" >> $GITHUB_PATH
+        echo "LFI_CLANG_TOOLCHAIN=$PWD/x86_64-lfi-clang/lfi-bin" >> $GITHUB_ENV
+        popd
+
+    - name: Install native clang toolchain
+      run: |
+        pushd "${RUNNER_TEMP}"
+        wget -q https://github.com/lfi-project/lfi/releases/download/v0.11/x86_64-native-clang.tar.gz
+        sha256sum -c <(echo "8bb7c8844f839912af67f0f130f0e261d1a49e330f14aaeaf872cc50053c0cb9  x86_64-native-clang.tar.gz")
+        tar -xf x86_64-native-clang.tar.gz
+        echo "NATIVE_CLANG_TOOLCHAIN=$PWD/x86_64-native-clang/lfi-bin" >> $GITHUB_ENV
+        popd
+
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
 
     - name: Build brotli example
       run: |
         pushd ./examples/brotli/og_brotli_lfi
-        ./build.sh
+        ./build.sh "${LFI_CLANG_TOOLCHAIN}" "${NATIVE_CLANG_TOOLCHAIN}"
         popd
 
     - name: Upload prebuilt examples as Workflow Artifacts
