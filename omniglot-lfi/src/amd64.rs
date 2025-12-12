@@ -20,7 +20,7 @@ use omniglot::rt::sysv_amd64::{SysVAMD64BaseRt, SysVAMD64InvokeRes, SysVAMD64Rt}
 use omniglot::rt::{CallbackContext, CallbackReturn, OGRuntime};
 use omniglot::{OGError, OGResult};
 
-use crate::common::{AllocChain, Allocation, AllowedRegions};
+use crate::common::{AllocChain, Allocation};
 use crate::liblfi;
 
 struct ForcePin<T> {
@@ -407,6 +407,13 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         let box_min_addr: *mut c_void = lossless_usize_to_c_void_ptr(lfi_box_info.min);
         let box_max_addr: *mut c_void = lossless_usize_to_c_void_ptr(lfi_box_info.max);
 
+        // Determine the current LFI stack pointer, which we assume to be the
+        // top of the LFI stack:
+        let foreign_stack_top = {
+            let lfi_regs: &mut liblfi::LFIRegs = unsafe { &mut *liblfi::lfi_ctx_regs(lfi_ctx) };
+            lfi_regs.rsp as *mut ()
+        };
+
         // State shared with callback handlers (Rc'ed, to produce static,
         // non-stacked callbacks):
         let callback_panic_object = Rc::new(RefCell::new(None));
@@ -496,12 +503,8 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             pinned_argv,
             pinned_envp,
         };
-        let mut alloc_scope = unsafe {
-            AllocScope::new(
-                AllocChain::Base(RefCell::new(AllowedRegions::new())),
-                id_imprint,
-            )
-        };
+        let mut alloc_scope =
+            unsafe { AllocScope::new(AllocChain::new(foreign_stack_top), id_imprint) };
         let mut access_scope = unsafe { AccessScope::new(id_imprint) };
 
         rt.resolve_box_symbols();
@@ -628,7 +631,11 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
                 // executed.
                 let mut alloc_scope: AllocScope<'_, AllocChain<'_>, ID> = unsafe {
                     AllocScope::new(
-                        AllocChain::Cons(unwind_safe_execute_hook_alloc_chain_head.0),
+                        AllocChain::ForeignStack {
+                            base: unwind_safe_execute_hook_alloc_chain_head.0.base(),
+                            pred: unwind_safe_execute_hook_alloc_chain_head.0,
+                            foreign_stack_bottom: callback_context.stack_ptr as *mut (),
+                        },
                         unwind_safe_id_imprint.0,
                     )
                 };
@@ -803,10 +810,11 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             );
         } else {
             log::trace!(
-                "og_boxrt_callback_allow: allowed region start = {} {:p}, len = {}",
+                "og_boxrt_callback_allow: allowed region start = {} {:p}, len = {}, end = {:p}",
                 if mutable { "*mut" } else { "*const" },
                 start,
-                len
+                len,
+                start.wrapping_byte_add(len),
             );
         }
 
@@ -1158,14 +1166,15 @@ unsafe impl<ID: OGID> OGRuntime for OGLFISysVAMD64Runtime<ID> {
             // Create a new allocation frame:
             let mut inner_alloc_scope: AllocScope<'_, AllocChain<'_>, ID> = unsafe {
                 AllocScope::new(
-                    AllocChain::HostAllocation(
-                        alloc_scope.tracker(),
-                        Allocation {
+                    AllocChain::HostAllocation {
+                        base: alloc_scope.tracker().base(),
+                        pred: alloc_scope.tracker(),
+                        alloc: Allocation {
                             ptr,
                             len: layout.size(),
                             mutable: true,
                         },
-                    ),
+                    },
                     alloc_scope.id_imprint(),
                 )
             };

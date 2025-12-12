@@ -52,44 +52,85 @@ impl AllowedRegions {
     }
 }
 
+pub struct AllocChainBase {
+    allowed: std::cell::RefCell<AllowedRegions>,
+    foreign_stack_top: *mut (),
+}
+
 pub enum AllocChain<'a> {
-    Base(std::cell::RefCell<AllowedRegions>),
-    Cons(&'a AllocChain<'a>),
-    HostAllocation(&'a AllocChain<'a>, Allocation),
+    Base(AllocChainBase),
+    Cons {
+        base: &'a AllocChainBase,
+        pred: &'a AllocChain<'a>,
+    },
+    ForeignStack {
+        base: &'a AllocChainBase,
+        pred: &'a AllocChain<'a>,
+        foreign_stack_bottom: *mut (),
+    },
+    HostAllocation {
+        base: &'a AllocChainBase,
+        pred: &'a AllocChain<'a>,
+        alloc: Allocation,
+    },
 }
 
 impl<'a> AllocChain<'a> {
+    pub fn new(foreign_stack_top: *mut ()) -> AllocChain<'a> {
+        AllocChain::Base(AllocChainBase {
+            allowed: std::cell::RefCell::new(AllowedRegions::new()),
+            foreign_stack_top,
+        })
+    }
+
     fn iter(&'a self) -> AllocChainIter<'a> {
         AllocChainIter(Some(self))
     }
 
     fn is_valid_int(&self, ptr: *mut (), len: usize, mutable: bool) -> bool {
         self.iter().any(|elem| match elem {
-            AllocChain::Base(allowed_regions) => {
-                allowed_regions.borrow().is_valid_int(ptr, len, mutable)
+            AllocChain::Base(base) => base.allowed.borrow().is_valid_int(ptr, len, mutable),
+            AllocChain::HostAllocation { alloc, .. } => alloc.is_valid_int(ptr, len, mutable),
+            AllocChain::ForeignStack {
+                foreign_stack_bottom,
+                ..
+            } => {
+                // TODO: this should probably only check the very first
+                // ForeignStack encountered with the iterator:
+                ptr as usize <= self.base().foreign_stack_top as usize
+                    && (ptr as usize)
+                        .checked_add(len)
+                        .is_some_and(|end_ptr| end_ptr > *foreign_stack_bottom as usize)
             }
-            AllocChain::HostAllocation(_, alloc) => alloc.is_valid_int(ptr, len, mutable),
-            AllocChain::Cons(_) => false,
+            AllocChain::Cons { .. } => false,
         })
     }
 
+    pub fn base(&'a self) -> &'a AllocChainBase {
+        match self {
+            AllocChain::Base(base) => base,
+            AllocChain::HostAllocation { base, .. } => base,
+            AllocChain::ForeignStack { base, .. } => base,
+            AllocChain::Cons { base, .. } => base,
+        }
+    }
+
     pub fn allowed_regions(&self) -> &std::cell::RefCell<AllowedRegions> {
-        self.iter()
-            .find_map(|elem| match elem {
-                AllocChain::Base(allowed_regions) => Some(allowed_regions),
-                _ => None,
-            })
-            .unwrap()
+        &self.base().allowed
     }
 }
 
 unsafe impl<'a> AllocTracker for AllocChain<'a> {
     fn is_valid(&self, ptr: *const (), len: usize) -> bool {
-        self.is_valid_int(ptr as *mut (), len, false)
+        let v = self.is_valid_int(ptr as *mut (), len, false);
+        // println!("is valid? {:p}, {} = {:?}", ptr, len, v);
+        v
     }
 
     fn is_valid_mut(&self, ptr: *mut (), len: usize) -> bool {
-        self.is_valid_int(ptr, len, true)
+        let v = self.is_valid_int(ptr, len, true);
+        // println!("is valid mut? {:p}, {} = {:?}", ptr, len, v);
+        v
     }
 }
 
@@ -100,9 +141,10 @@ impl<'a> Iterator for AllocChainIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(cur) = self.0 {
             self.0 = match cur {
-                AllocChain::Base(_) => None,
-                AllocChain::HostAllocation(pred, _) => Some(pred),
-                AllocChain::Cons(pred) => Some(pred),
+                AllocChain::Base { .. } => None,
+                AllocChain::HostAllocation { pred, .. } => Some(pred),
+                AllocChain::ForeignStack { pred, .. } => Some(pred),
+                AllocChain::Cons { pred, .. } => Some(pred),
             };
 
             Some(cur)
