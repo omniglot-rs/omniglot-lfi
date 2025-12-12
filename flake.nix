@@ -61,6 +61,13 @@
           }
         );
 
+        treefmt =
+          (treefmt-nix.lib.evalModule (pkgs.extend (
+            self: super: {
+              rustfmt = rustToolchain;
+            }
+          )) ./treefmt.nix).config.build;
+
         craneLib = (crane.mkLib pkgs).overrideToolchain (_p: rustToolchain);
 
         cleanedRustSrc =
@@ -201,12 +208,12 @@
         };
 
         checks = {
-          formatting = (treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.check self;
+          formatting = treefmt.check self;
           inherit omniglot-lfi-workspace-nextest;
         }
         // packages;
 
-        formatter = (treefmt-nix.lib.evalModule pkgs ./treefmt.nix).config.build.wrapper;
+        formatter = treefmt.wrapper;
 
         devShells =
           let
