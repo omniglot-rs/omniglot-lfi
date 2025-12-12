@@ -65,12 +65,13 @@ jobs:
         path: |
           ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
 
-    - name: Determine short Git commit ref
-      id: sha_short
+    - name: Determine GitHub Release Variables
+      id: gh_release_vars
       run: |
         GITHUB_SHA="${{ github.sha }}"
         GITHUB_SHA_SHORT="${GITHUB_SHA:0:14}"
         echo "sha_short=${GITHUB_SHA_SHORT}" >> $GITHUB_OUTPUT
+        echo "release_ts=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
 
     - name: Publish prebuilt examples as GitHub pre-release
       uses: softprops/action-gh-release@v2
@@ -79,8 +80,8 @@ jobs:
       if: ${{ inputs.create-release && !env.ACT}}
 
       with:
-        name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
-        tag_name: prebuilt-examples-${{ steps.sha_short.outputs.sha_short }}
+        name: prebuilt-examples-${{ steps.gh_release_vars.outputs.release_ts }}-${{ steps.gh_release_vars.outputs.sha_short }}
+        tag_name: prebuilt-examples-${{ steps.gh_release_vars.outputs.release_ts }}-${{ steps.gh_release_vars.outputs.sha_short }}
         body: >-
           Pre-built LFI sandbox binaries for the example libraries
           included in this repository. Automatically built and
