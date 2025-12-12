@@ -80,7 +80,13 @@
               # Include C header files and compiled artifacts for the `tests` crate:
               || (lib.hasPrefix "tests/liboglfitests_lfi" relPath)
               # Include C header files and compiled artifacts for the `add` example:
-              || (lib.hasPrefix "examples/add/libadd_lfi" relPath);
+              || (lib.hasPrefix "examples/add/libadd_lfi" relPath)
+              # Include C header files for the `brotli` example:
+              || (lib.hasPrefix "examples/brotli/og_brotli_lfi" relPath)
+              # Include the prebuilt archive manifest for the brotli example:
+              || (relPath == "examples/brotli/og_brotli_lfi_prebuilt.json")
+              # Include the vendored compression test source for the brotli example:
+              || (relPath == "examples/brotli/vanity_fair.txt");
 
             # Strip "/nix/store/${hash}-source/" prefix:
             trimStorePathPrefix =
@@ -163,6 +169,14 @@
         # So, instead, use the whole rustSrc as input:
         fileSetForCrate = _crate: cleanedRustSrc;
 
+        # Environment variables pointing to prebuilt LFI binary archives in the
+        # Nix store, to prevent the crates' build script from downloading them:
+        prebuiltArchives = {
+          OG_BROTLI_LFI_PREBUILT_ARCHIVE = builtins.fetchurl (
+            builtins.fromJSON (builtins.readFile ./examples/brotli/og_brotli_lfi_prebuilt.json)
+          );
+        };
+
         omniglot-lfi = craneLib.buildPackage (
           individualCrateArgs
           // {
@@ -181,6 +195,19 @@
           }
         );
 
+        omniglot-lfi-example-brotli = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "omniglot-lfi-example-brotli";
+            cargoExtraArgs = "-p omniglot-lfi-example-brotli";
+            src = fileSetForCrate ./examples/brotli;
+
+            # Prevent the build script from attempting to download the prebuilt
+            # `og_brotli_lfi` library from GitHub releases:
+            inherit (prebuiltArchives) OG_BROTLI_LFI_PREBUILT_ARCHIVE;
+          }
+        );
+
         # Run tests with cargo-nextest. We set `doCheck = false` on
         # other crate derivations so we do not the tests twice.
         omniglot-lfi-workspace-nextest = craneLib.cargoNextest (
@@ -195,6 +222,12 @@
             # Otherwise, nextest can't find `liblfi.so`:
             LD_LIBRARY_PATH = lib.makeLibraryPath [ lfi-runtime ];
           }
+          // (
+            # Include environment variables pointing to prebuilt archives, to
+            # prevent the example build scripts from attempting to download them
+            # from GitHub releases:
+            prebuiltArchives
+          )
         );
 
       in
@@ -204,6 +237,7 @@
             lfi-runtime
             omniglot-lfi
             omniglot-lfi-example-add
+            omniglot-lfi-example-brotli
             ;
         };
 
