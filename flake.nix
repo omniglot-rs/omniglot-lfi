@@ -1,3 +1,5 @@
+# -*- fill-column: 80; -*-
+
 {
   description = "LFI runtime for Omniglot";
 
