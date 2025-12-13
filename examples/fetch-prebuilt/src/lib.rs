@@ -72,13 +72,16 @@ pub fn fetch_prebuilt(
 
     // Re-fetch if `target_path` did not exist (or we've just deleted it):
     if target_path.exists() {
-        println!("cargo:warning=Using cached {archive_name} archive");
+        println!(
+            "cargo:warning=Using cached {archive_name} archive at {:?}",
+            target_path
+        );
     } else {
         let prebuilt_archive_bytes = match env::var(archive_path_env_var) {
             Ok(path) => {
                 println!(
-                    "cargo:warning=Using prebuilt {} archive from {}",
-                    archive_name, path
+                    "cargo:warning=Using prebuilt {} archive from {}, extracting to {:?}",
+                    archive_name, path, target_path,
                 );
                 std::fs::read(path).unwrap_or_else(|_| {
                     panic!(
@@ -89,8 +92,8 @@ pub fn fetch_prebuilt(
             }
             Err(_) => {
                 println!(
-                    "cargo:warning=Using prebuilt {} archive from {}",
-                    archive_name, archive_manifest.url,
+                    "cargo:warning=Using prebuilt {} archive from {}, extracting to {:?}",
+                    archive_name, archive_manifest.url, target_path,
                 );
                 reqwest::blocking::get(&archive_manifest.url)
                     .unwrap_or_else(|_| {

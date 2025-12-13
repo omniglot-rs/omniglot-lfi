@@ -1,0 +1,25 @@
+[package]
+name = "omniglot-lfi-example-sodium"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+disable_upgrade_checks = ["omniglot/unsound", "omniglot/disable_upgrade_checks"]
+disable_validation_checks = ["omniglot/unsound", "omniglot/disable_validation_checks"]
+
+[build-dependencies]
+bindgen.workspace = true
+fetch-prebuilt = { path = "../fetch-prebuilt" }
+
+[dev-dependencies]
+criterion = "0.8.1"
+rand = { version = "0.9.2", default-features = false, features = ["small_rng"] }
+
+[dependencies]
+omniglot.workspace = true
+omniglot-lfi = { path = "../../omniglot-lfi" }
+env_logger = "0.11.8"
+
+[[bench]]
+name = "sodium_hash_comparison"
+harness = false
