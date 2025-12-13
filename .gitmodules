@@ -10,3 +10,6 @@
 [submodule "examples/sodium/og_sodium_lfi/libsodium_src"]
 	path = examples/sodium/og_sodium_lfi/libsodium_src
 	url = https://github.com/jedisct1/libsodium
+[submodule "examples/llhttp/og_llhttp_lfi/llhttp_src"]
+	path = examples/llhttp/og_llhttp_lfi/llhttp_src
+	url = https://github.com/nodejs/llhttp/
