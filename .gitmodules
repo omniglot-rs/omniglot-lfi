@@ -7,3 +7,6 @@
 [submodule "examples/libpng/og_libpng_lfi/zlib_src"]
 	path = examples/libpng/og_libpng_lfi/zlib_src
 	url = https://github.com/madler/zlib
+[submodule "examples/sodium/og_sodium_lfi/libsodium_src"]
+	path = examples/sodium/og_sodium_lfi/libsodium_src
+	url = https://github.com/jedisct1/libsodium
