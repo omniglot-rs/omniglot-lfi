@@ -48,29 +48,48 @@ jobs:
       with:
         submodules: true
 
+    - name: Initialize and export PREBUILT_ARTIFACTS variable
+      run: echo "PREBUILT_ARTIFACTS=[]" >> $GITHUB_ENV
+
     - name: Build brotli example
       run: |
         pushd ./examples/brotli/og_brotli_lfi
         ./build.sh "${LFI_CLANG_TOOLCHAIN}" "${NATIVE_CLANG_TOOLCHAIN}"
         popd
+        echo "PREBUILT_ARTIFACTS=$(\
+          echo '${{ env.PREBUILT_ARTIFACTS }}' \
+          | jq -c '. += ["./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz"]' \
+        )" >> $GITHUB_ENV
 
     - name: Build libpng example
       run: |
         pushd ./examples/libpng/og_libpng_lfi
         ./build.sh "${LFI_CLANG_TOOLCHAIN}" "${NATIVE_CLANG_TOOLCHAIN}"
         popd
+        echo "PREBUILT_ARTIFACTS=$(\
+          echo '${{ env.PREBUILT_ARTIFACTS }}' \
+          | jq -c '. += ["./examples/libpng/og_libpng_lfi/build/og_libpng_lfi.tar.gz"]' \
+        )" >> $GITHUB_ENV
 
     - name: Build libsodium example
       run: |
         pushd ./examples/sodium/og_sodium_lfi
         ./build.sh "${LFI_CLANG_TOOLCHAIN}" "${NATIVE_CLANG_TOOLCHAIN}"
         popd
+        echo "PREBUILT_ARTIFACTS=$(\
+          echo '${{ env.PREBUILT_ARTIFACTS }}' \
+          | jq -c '. += ["./examples/sodium/og_sodium_lfi/build/og_sodium_lfi.tar.gz"]' \
+        )" >> $GITHUB_ENV
 
     - name: Build llhttp example
       run: |
         pushd ./examples/llhttp/og_llhttp_lfi
         ./build.sh "${LFI_CLANG_TOOLCHAIN}" "${NATIVE_CLANG_TOOLCHAIN}"
         popd
+        echo "PREBUILT_ARTIFACTS=$(\
+          echo '${{ env.PREBUILT_ARTIFACTS }}' \
+          | jq -c '. += ["./examples/llhttp/og_llhttp_lfi/build/og_llhttp_lfi.tar.gz"]' \
+        )" >> $GITHUB_ENV
 
     - name: Upload prebuilt examples as Workflow Artifacts
       uses: actions/upload-artifact@v4
@@ -80,11 +99,8 @@ jobs:
 
       with:
         name: prebuilt-examples
-        path: |
-          ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
-          ./examples/libpng/og_libpng_lfi/build/og_libpng_lfi.tar.gz
-          ./examples/sodium/og_sodium_lfi/build/og_sodium_lfi.tar.gz
-          ./examples/llhttp/og_llhttp_lfi/build/og_llhttp_lfi.tar.gz
+        # fromJson('"\\n"') produces a real newline character
+        path: ${{ join(fromJson(env.PREBUILT_ARTIFACTS), fromJson('"\n"')) }}
 
     - name: Determine GitHub Release Variables
       id: gh_release_vars
@@ -108,8 +124,5 @@ jobs:
           included in this repository. Automatically built and
           published through GitHub Actions.
         prerelease: true
-        files: |
-          ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
-          ./examples/libpng/og_libpng_lfi/build/og_libpng_lfi.tar.gz
-          ./examples/sodium/og_sodium_lfi/build/og_sodium_lfi.tar.gz
-          ./examples/llhttp/og_llhttp_lfi/build/og_llhttp_lfi.tar.gz
+        # fromJson('"\\n"') produces a real newline character
+        files: ${{ join(fromJson(env.PREBUILT_ARTIFACTS), fromJson('"\n"')) }}
