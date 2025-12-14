@@ -83,8 +83,8 @@ jobs:
         path: |
           ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
           ./examples/libpng/og_libpng_lfi/build/og_libpng_lfi.tar.gz
-          ./examples/libpng/og_sodium_lfi/build/og_sodium_lfi.tar.gz
-          ./examples/libpng/og_llhttp_lfi/build/og_llhttp_lfi.tar.gz
+          ./examples/sodium/og_sodium_lfi/build/og_sodium_lfi.tar.gz
+          ./examples/llhttp/og_llhttp_lfi/build/og_llhttp_lfi.tar.gz
 
     - name: Determine GitHub Release Variables
       id: gh_release_vars
@@ -112,4 +112,4 @@ jobs:
           ./examples/brotli/og_brotli_lfi/build/og_brotli_lfi.tar.gz
           ./examples/libpng/og_libpng_lfi/build/og_libpng_lfi.tar.gz
           ./examples/sodium/og_sodium_lfi/build/og_sodium_lfi.tar.gz
-          ./examples/sodium/og_llhttp_lfi/build/og_llhttp_lfi.tar.gz
+          ./examples/llhttp/og_llhttp_lfi/build/og_llhttp_lfi.tar.gz
