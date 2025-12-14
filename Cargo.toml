@@ -5,6 +5,7 @@ members = [
     "examples/brotli",
     "examples/fetch-prebuilt",
     "examples/libpng",
+    "examples/llhttp",
     "examples/sodium",
     "omniglot-lfi",
     "tests",

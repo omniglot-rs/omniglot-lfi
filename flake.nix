@@ -94,7 +94,11 @@
               # Include C header files for the `sodium` example:
               || (lib.hasPrefix "examples/sodium/og_sodium_lfi" relPath)
               # Include the prebuilt archive manifest for the sodium example:
-              || (relPath == "examples/sodium/og_sodium_lfi_prebuilt.json");
+              || (relPath == "examples/sodium/og_sodium_lfi_prebuilt.json")
+              # Include C header files for the `llhttp` example:
+              || (lib.hasPrefix "examples/llhttp/og_llhttp_lfi" relPath)
+              # Include the prebuilt archive manifest for the llhttp example:
+              || (relPath == "examples/llhttp/og_llhttp_lfi_prebuilt.json");
 
             # Strip "/nix/store/${hash}-source/" prefix:
             trimStorePathPrefix =
@@ -191,6 +195,10 @@
           OG_SODIUM_LFI_PREBUILT_ARCHIVE = builtins.fetchurl (
             builtins.fromJSON (builtins.readFile ./examples/sodium/og_sodium_lfi_prebuilt.json)
           );
+
+          OG_LLHTTP_LFI_PREBUILT_ARCHIVE = builtins.fetchurl (
+            builtins.fromJSON (builtins.readFile ./examples/llhttp/og_llhttp_lfi_prebuilt.json)
+          );
         };
 
         omniglot-lfi = craneLib.buildPackage (
@@ -250,6 +258,19 @@
           }
         );
 
+        omniglot-lfi-example-llhttp = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "omniglot-lfi-example-llhttp";
+            cargoExtraArgs = "-p omniglot-lfi-example-llhttp";
+            src = fileSetForCrate ./examples/llhttp;
+
+            # Prevent the build script from attempting to download the prebuilt
+            # `og_llhttp_lfi` library from GitHub releases:
+            inherit (prebuiltArchives) OG_LLHTTP_LFI_PREBUILT_ARCHIVE;
+          }
+        );
+
         # Run tests with cargo-nextest. We set `doCheck = false` on
         # other crate derivations so we do not the tests twice.
         omniglot-lfi-workspace-nextest = craneLib.cargoNextest (
@@ -282,6 +303,7 @@
             omniglot-lfi-example-brotli
             omniglot-lfi-example-libpng
             omniglot-lfi-example-sodium
+            omniglot-lfi-example-llhttp
             ;
         };
 

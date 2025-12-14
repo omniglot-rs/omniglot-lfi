@@ -1184,6 +1184,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "omniglot-lfi-example-llhttp"
+version = "0.1.0"
+dependencies = [
+ "bindgen 0.69.4",
+ "criterion",
+ "env_logger",
+ "fetch-prebuilt",
+ "omniglot",
+ "omniglot-lfi",
+ "rand",
+ "rayon",
+]
+
+[[package]]
 name = "omniglot-lfi-example-sodium"
 version = "0.1.0"
 dependencies = [
