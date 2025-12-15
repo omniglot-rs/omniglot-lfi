@@ -107,8 +107,11 @@ const LFI_SANDBOXES_PER_ENGINE: usize = 16;
 
 // Global state keeping track of LFIEngines, shared between multiple Omniglot
 // runtimes. Accesses to the engines must hold this unique lock for the entire
-// duration of this object being used (such as to create a new LFIProc):
-static LFI_ENGINES: Mutex<Vec<LFIEngineSandboxes>> = Mutex::new(Vec::new());
+// duration of this object being used (such as to create a new LFIProc).
+//
+// First two tuple members hold the global count of active LFI engines and
+// sandboxes, respectively.
+static LFI_ENGINES: Mutex<(usize, usize, Vec<LFIEngineSandboxes>)> = Mutex::new((0, 0, Vec::new()));
 
 // Run a closure, passing a "free" (meaning it has at least one empty sandbox
 // slot available) LFIEngine pointer, and holding the LFI_ENGINES lock for the
@@ -122,16 +125,21 @@ fn with_free_lfi_engine<R>(
     let mut lfi_engines_lg = LFI_ENGINES
         .lock()
         .expect("LFI_ENGINES lock poisoned, cannot proceed!");
+    let (
+        ref mut lfi_active_engines_cnt,
+        ref mut lfi_active_sandboxes_cnt,
+        ref mut lfi_engine_sandboxes,
+    ) = *lfi_engines_lg;
 
     // Try to find an LFIEngine with one free sandbox slot available:
-    let free_lfi_engine_idx = lfi_engines_lg
+    let free_lfi_engine_idx = lfi_engine_sandboxes
         .iter()
         .enumerate()
         .find(|(_idx, entry)| entry.active_sandboxes < LFI_SANDBOXES_PER_ENGINE)
         .map(|(idx, _entry)| idx);
 
     let free_lfi_engine: &mut _ = if let Some(idx) = free_lfi_engine_idx {
-        &mut lfi_engines_lg[idx]
+        &mut lfi_engine_sandboxes[idx]
     } else {
         let engine = unsafe {
             liblfi::lfi_new(
@@ -156,8 +164,15 @@ fn with_free_lfi_engine<R>(
         };
 
         if engine == std::ptr::null_mut() {
+            log::error!("lfi_new returned null");
             return None;
         }
+
+        *lfi_active_engines_cnt += 1;
+        log::info!(
+            "Created new LFI engine, active engines: {}",
+            lfi_active_engines_cnt,
+        );
 
         let linux_engine = unsafe {
             liblfi::lfi_linux_new(
@@ -180,11 +195,12 @@ fn with_free_lfi_engine<R>(
         };
 
         if linux_engine == std::ptr::null_mut() {
+            log::error!("lfi_linux_new returned None");
             return None;
         }
 
         // Add the newly constructed engine to the back of the vector ...
-        lfi_engines_lg.push(LFIEngineSandboxes {
+        lfi_engine_sandboxes.push(LFIEngineSandboxes {
             engine: linux_engine,
             active_sandboxes: 0,
         });
@@ -192,13 +208,18 @@ fn with_free_lfi_engine<R>(
         // ... and get a mutable reference to it.
         //
         // TODO: use `push_mut` once that is stabilized:
-        let lfi_engines_len = lfi_engines_lg.len();
-        &mut lfi_engines_lg[lfi_engines_len - 1]
+        let lfi_engines_len = lfi_engine_sandboxes.len();
+        &mut lfi_engine_sandboxes[lfi_engines_len - 1]
     };
 
     let (sandbox_created, res) = fun(free_lfi_engine.engine);
     if sandbox_created {
         free_lfi_engine.active_sandboxes += 1;
+        *lfi_active_sandboxes_cnt += 1;
+        log::info!(
+            "Created new LFI sandbox, active sandboxes: {}",
+            lfi_active_sandboxes_cnt,
+        );
     }
 
     // Drop the lock guard here manually, to ensure we hold it across the
@@ -336,11 +357,12 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             log::trace!("Created LFI process: {:p}", lfi_proc);
             (true, Ok(lfi_proc))
         })
-        .ok_or(
+        .ok_or_else(|| {
             // `with_free_lfi_engine` returns None when there was an error
             // instantiating the LFI engine:
-            OGError::InternalError,
-        )??;
+            log::error!("Failed to acquire LFI engine with free sandbox slot!");
+            OGError::InternalError
+        })??;
 
         let pinned_program_name = Box::pin(ForcePin::new(program_name));
         let lfi_proc_load_res = unsafe {
