@@ -11,7 +11,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("llhttp_parse");
 
-    for threads in (0..).map(|n| 2usize.pow(n)).take(4) {
+    for threads in 1..=16 {
         println!("Creating rayon ThreadPool with {threads} threads");
 
         // This needs to run outside of `bench_with_input`, because that runs
