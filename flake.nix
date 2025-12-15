@@ -79,6 +79,8 @@
               (lib.hasPrefix "omniglot-lfi/c_src" relPath)
               # Include C header files and compiled artifacts for the `tests` crate:
               || (lib.hasPrefix "tests/liboglfitests_lfi" relPath)
+              # Include C header files and compiled artifacts for the `microbenchmarks` crate:
+              || (lib.hasPrefix "microbenchmarks/liboglfiubench_lfi" relPath)
               # Include C header files and compiled artifacts for the `add` example:
               || (lib.hasPrefix "examples/add/libadd_lfi" relPath)
               # Include C header files for the `brotli` example:
@@ -210,6 +212,15 @@
           }
         );
 
+        omniglot-lfi-microbenchmarks = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "omniglot-lfi-microbenchmarks";
+            cargoExtraArgs = "-p omniglot-lfi-microbenchmarks";
+            src = fileSetForCrate ./microbenchmarks;
+          }
+        );
+
         omniglot-lfi-example-add = craneLib.buildPackage (
           individualCrateArgs
           // {
@@ -299,6 +310,7 @@
           inherit
             lfi-runtime
             omniglot-lfi
+            omniglot-lfi-microbenchmarks
             omniglot-lfi-example-add
             omniglot-lfi-example-brotli
             omniglot-lfi-example-libpng

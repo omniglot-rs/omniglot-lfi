@@ -9,6 +9,7 @@ members = [
     "examples/sodium",
     "omniglot-lfi",
     "tests",
+    "microbenchmarks",
 ]
 
 [workspace.metadata.crane]
