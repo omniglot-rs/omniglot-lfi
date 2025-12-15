@@ -84,21 +84,21 @@
               # Include C header files and compiled artifacts for the `add` example:
               || (lib.hasPrefix "examples/add/libadd_lfi" relPath)
               # Include C header files for the `brotli` example:
-              || (lib.hasPrefix "examples/brotli/og_brotli_lfi" relPath)
+              || (lib.hasPrefix "examples/brotli/og_brotli_lfi/og_brotli_lfi.h" relPath)
               # Include the prebuilt archive manifest for the brotli example:
               || (relPath == "examples/brotli/og_brotli_lfi_prebuilt.json")
               # Include the vendored compression test source for the brotli example:
               || (relPath == "examples/brotli/vanity_fair.txt")
               # Include C header files for the `libpng` example:
-              || (lib.hasPrefix "examples/libpng/og_libpng_lfi" relPath)
+              || (lib.hasPrefix "examples/libpng/og_libpng_lfi/libpng_nojmp.h" relPath)
               # Include the prebuilt archive manifest for the libpng example:
               || (relPath == "examples/libpng/og_libpng_lfi_prebuilt.json")
               # Include C header files for the `sodium` example:
-              || (lib.hasPrefix "examples/sodium/og_sodium_lfi" relPath)
+              || (lib.hasPrefix "examples/sodium/og_sodium_lfi/og_sodium_lfi.h" relPath)
               # Include the prebuilt archive manifest for the sodium example:
               || (relPath == "examples/sodium/og_sodium_lfi_prebuilt.json")
               # Include C header files for the `llhttp` example:
-              || (lib.hasPrefix "examples/llhttp/og_llhttp_lfi" relPath)
+              || (lib.hasPrefix "examples/llhttp/og_llhttp_lfi/og_llhttp_lfi.h" relPath)
               # Include the prebuilt archive manifest for the llhttp example:
               || (relPath == "examples/llhttp/og_llhttp_lfi_prebuilt.json")
               # Include the vendored HTTP request sample for the llhttp example:
