@@ -100,7 +100,9 @@
               # Include C header files for the `llhttp` example:
               || (lib.hasPrefix "examples/llhttp/og_llhttp_lfi" relPath)
               # Include the prebuilt archive manifest for the llhttp example:
-              || (relPath == "examples/llhttp/og_llhttp_lfi_prebuilt.json");
+              || (relPath == "examples/llhttp/og_llhttp_lfi_prebuilt.json")
+              # Include the vendored HTTP request sample for the llhttp example:
+              || (relPath == "examples/llhttp/get_wikipedia_org_req.txt");
 
             # Strip "/nix/store/${hash}-source/" prefix:
             trimStorePathPrefix =

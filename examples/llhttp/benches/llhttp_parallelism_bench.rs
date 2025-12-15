@@ -23,8 +23,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
                 pool.install(|| {
                     b.iter(|| {
-                        rayon::iter::repeat(b"GET / HTTP/1.1\r\n\r\n")
-                            .take(1024)
+                        rayon::iter::repeat(include_bytes!("../get_wikipedia_org_req.txt"))
+                            // Make sure we have enough elements in our
+                            // pool to not have contention over the last
+                            // few elements in the chain have outsized
+                            // statistical influence:
+                            .take(64 * 1024)
                             .for_each(|req| parse_http_request(req));
                     })
                 });

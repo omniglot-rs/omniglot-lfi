@@ -125,5 +125,5 @@ pub fn parse_http_request(req: &[u8]) {
 
 #[test]
 fn smoketest() {
-    parse_http_request(b"GET / HTTP/1.1\r\n\r\n")
+    parse_http_request(include_bytes!("../get_wikipedia_org_req.txt"))
 }
