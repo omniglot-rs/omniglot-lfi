@@ -24,18 +24,19 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             .build()
             .unwrap();
 
+        // Make sure we have enough elements in our pool to not have contention
+        // over the last few elements in the chain have outsized statistical
+        // influence:
+        const PARSE_ITERS: usize = 64 * 1024;
+
         group.bench_with_input(
-            BenchmarkId::new("llhttp_parse_threads", threads),
+            BenchmarkId::new(&format!("llhttp_parse_{}req_threads", PARSE_ITERS), threads),
             &threads,
             |b, _| {
                 pool.install(|| {
                     b.iter(|| {
                         rayon::iter::repeat(include_bytes!("../get_wikipedia_org_req.txt"))
-                            // Make sure we have enough elements in our
-                            // pool to not have contention over the last
-                            // few elements in the chain have outsized
-                            // statistical influence:
-                            .take(64 * 1024)
+                            .take(PARSE_ITERS)
                             .for_each(|req| parse_http_request(req));
                     })
                 });
