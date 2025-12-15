@@ -15,9 +15,12 @@ function buildSodium {
 
     mkdir -p "./build/sodium_${SUFFIX}"
     pushd "./build/sodium_${SUFFIX}"
+    # We build sodium with `--disable-ssp`, as otherwise running with
+    # LFI results in triggering `__stack_chk_fail`:
     ../../libsodium_src/configure \
 	--prefix="$(realpath ./install)" \
 	--host="${HOST_TUPLE}" \
+	--disable-ssp \
 	CC=${TOOLCHAIN_PREFIX}clang
     make install
     popd
