@@ -126,8 +126,7 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
             )),
             c"sodium".into(),
             [].into_iter(),
-            // Don't expose allow/revoke callbacks to the foreign library:
-            false,
+            omniglot_lfi::OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE,
             brand,
         )
         .unwrap();

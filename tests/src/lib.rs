@@ -4,6 +4,8 @@
 use omniglot::id::OGID;
 use omniglot::markers::{AccessScope, AllocScope};
 
+use omniglot_lfi::OGLFIMemoryAccessConfig;
+
 // Auto-generated bindings, so doesn't follow Rust conventions at all:
 #[allow(non_upper_case_globals)]
 #[allow(non_snake_case)]
@@ -39,20 +41,22 @@ pub fn env_logger_init() {
 
 pub trait OGLFITestConfiguration {
     const BINARY: &'static [u8];
-    const ENABLE_ALLOW_REVOKE: bool;
+    const MEMORY_ACCESS_CFG: OGLFIMemoryAccessConfig;
 }
 
 pub enum OGLFITestDefaultConfig {}
 impl OGLFITestConfiguration for OGLFITestDefaultConfig {
     const BINARY: &'static [u8] = include_bytes!("../liboglfitests_lfi/liboglfitests_default.lfi");
-    const ENABLE_ALLOW_REVOKE: bool = false;
+    const MEMORY_ACCESS_CFG: OGLFIMemoryAccessConfig =
+        OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE;
 }
 
 pub enum OGLFITestAutoAllowRevokeConfig {}
 impl OGLFITestConfiguration for OGLFITestAutoAllowRevokeConfig {
     const BINARY: &'static [u8] =
         include_bytes!("../liboglfitests_lfi/liboglfitests_auto_allow_revoke.lfi");
-    const ENABLE_ALLOW_REVOKE: bool = true;
+    const MEMORY_ACCESS_CFG: OGLFIMemoryAccessConfig =
+        OGLFIMemoryAccessConfig::STACK_OR_REQUIRE_ALLOW_REVOKE;
 }
 
 // Helper function, to load the tests library into LFI and create an
@@ -81,7 +85,7 @@ pub fn with_lfi_sysv_amd64_rt_lib<CFG: OGLFITestConfiguration, ID: OGID, R>(
         CFG::BINARY,
         c"liboglfitests".into(),
         [].into_iter(),
-        CFG::ENABLE_ALLOW_REVOKE,
+        CFG::MEMORY_ACCESS_CFG,
         brand,
     )
     .unwrap();

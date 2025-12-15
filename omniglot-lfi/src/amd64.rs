@@ -22,6 +22,7 @@ use omniglot::{OGError, OGResult};
 
 use crate::common::{AllocChain, Allocation};
 use crate::liblfi;
+use crate::OGLFIMemoryAccessConfig;
 
 struct ForcePin<T> {
     inner: T,
@@ -268,6 +269,8 @@ pub struct OGLFISysVAMD64Runtime<ID: OGID> {
     // Misc state:
     id: ID,
 
+    memory_access_cfg: OGLFIMemoryAccessConfig,
+
     lfi_proc: *mut liblfi::LFILinuxProc,
     lfi_thread: *mut liblfi::LFILinuxThread,
     lfi_box: *mut liblfi::LFIBox,
@@ -319,17 +322,21 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         lfi_library: &[u8],
         program_name: CString,
         arguments: impl Iterator<Item = CString>,
-        enable_boxrt_allow_revoke: bool,
+        memory_access_cfg: OGLFIMemoryAccessConfig,
         id: ID,
     ) -> OGResult<(
         Self,
         AllocScope<'static, <Self as OGRuntime>::AllocTracker<'static>, ID>,
         AccessScope<ID>,
     )> {
-        if enable_boxrt_allow_revoke && omniglot::ALLOC_SCOPE_SEPARATE_ACTIVE_VALID_LT {
+        if !memory_access_cfg.enable_all_sandbox_memory_access
+            && memory_access_cfg.enable_allowed_memory_access
+            && omniglot::ALLOC_SCOPE_SEPARATE_ACTIVE_VALID_LT
+        {
             log::error!(
                 "Cannot create new Omniglot LFI runtime with \
-		 enable_boxrt_allow_revoke when the \
+		 `!enable_all_sandbox_memory_access && \
+		 enable_allowed_memory_access` when the \
 		 `alloc_scope_separate_active_valid_lt` feature is enabled on \
 		 the `omniglot` crate."
             );
@@ -443,7 +450,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
 
         // Build `og_boxrt` callbacks for foreign code, such as to inform the
         // runtime that certain memory is or is not to be accessed by the host:
-        let og_boxrt_callback_allow = if enable_boxrt_allow_revoke {
+        let og_boxrt_callback_allow = if memory_access_cfg.expose_boxrt_allow_revoke {
             Some(
                 Self::setup_static_callback(
                     id.get_imprint(),
@@ -468,7 +475,7 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             None
         };
 
-        let og_boxrt_callback_revoke = if enable_boxrt_allow_revoke {
+        let og_boxrt_callback_revoke = if memory_access_cfg.expose_boxrt_allow_revoke {
             Some(
                 Self::setup_static_callback(
                     id.get_imprint(),
@@ -500,6 +507,8 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
         let rt = OGLFISysVAMD64Runtime {
             id,
 
+            memory_access_cfg,
+
             callback_panic_object,
             callback_alloc_chain_head,
 
@@ -525,8 +534,17 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             pinned_argv,
             pinned_envp,
         };
-        let mut alloc_scope =
-            unsafe { AllocScope::new(AllocChain::new(foreign_stack_top), id_imprint) };
+        let mut alloc_scope = unsafe {
+            AllocScope::new(
+                AllocChain::new(
+                    memory_access_cfg,
+                    box_min_addr.cast::<()>(),
+                    box_max_addr.cast::<()>(),
+                    foreign_stack_top,
+                ),
+                id_imprint,
+            )
+        };
         let mut access_scope = unsafe { AccessScope::new(id_imprint) };
 
         rt.resolve_box_symbols();

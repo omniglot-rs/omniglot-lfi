@@ -54,9 +54,7 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
         include_bytes!("../liboglfiubench_lfi/liboglfiubench_mimalloc_default.lfi"),
         c"omniglot-lfi-microbenchmarks".into(),
         [].into_iter(),
-        // allow foreign library to use allow/revoke cbs to control which memory
-        // the host can access:
-        true,
+        omniglot_lfi::OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE,
         brand,
     )
     .unwrap();
