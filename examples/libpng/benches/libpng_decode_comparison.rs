@@ -6,7 +6,7 @@ use omniglot::rt::OGRuntime;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
 use omniglot_lfi_example_libpng::libpng_bindings::LibPng;
 use omniglot_lfi_example_libpng::{og_lfi, unsafe_ffi};
@@ -149,7 +149,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     |b, _| {
                         for _ in 0..STACK_RANDOMIZE_ITERS {
                             let stack_bytes: usize = (&mut prng)
-                                .gen_range(std::ops::RangeInclusive::new(1_usize, 4095_usize));
+                                .random_range(std::ops::RangeInclusive::new(1_usize, 4095_usize));
                             push_stack_bytes(stack_bytes, || {
                                 b.iter(|| {
                                     unsafe { unsafe_ffi::png_init().unwrap() };
@@ -174,9 +174,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     |b, _| {
                         for _ in 0..STACK_RANDOMIZE_ITERS {
                             let stack_bytes: usize = (&mut prng)
-                                .gen_range(std::ops::RangeInclusive::new(1_usize, 4095_usize));
+                                .random_range(std::ops::RangeInclusive::new(1_usize, 4095_usize));
                             let foreign_stack_bytes: usize = (&mut prng)
-                                .gen_range(std::ops::RangeInclusive::new(1_usize, 4095_usize));
+                                .random_range(std::ops::RangeInclusive::new(1_usize, 4095_usize));
                             push_stack_bytes(stack_bytes, || {
                                 lib.rt()
                                     .allocate_stacked_mut(

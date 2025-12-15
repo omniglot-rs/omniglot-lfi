@@ -1,18 +1,10 @@
 // -*- fill-column: 80; -*-
 
-use std::hint::black_box;
-
-use omniglot::rt::OGRuntime;
-
 use omniglot_lfi_example_llhttp::parse_http_request;
-
-use rand::distr::Uniform;
-use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
 
 use rayon::prelude::*;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     env_logger::init();
