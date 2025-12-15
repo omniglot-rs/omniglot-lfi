@@ -43,7 +43,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     omniglot::id::lifetime::OGLifetimeBranding::new(|brand| {
         with_lfi_sysv_amd64_rt_lib(brand, |lib, mut alloc, mut access| {
             let mut group = c.benchmark_group("libsodium_hash");
-            for size in (0..).map(|n| 8usize.pow(n)).skip(2).take(4) {
+
+            // Benchmark just the configurations of the OSDI'25 paper:
+            for size in [32768] {
+                // for size in (0..).map(|n| 8usize.pow(n)).skip(2).take(4) {
                 let to_hash = (&mut prng)
                     .sample_iter(Uniform::new_inclusive(u8::MIN, u8::MAX).unwrap())
                     .take(size)

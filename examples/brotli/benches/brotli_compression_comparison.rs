@@ -55,7 +55,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         |mock_lib: BrotliRt<_, _, _>, mut mock_alloc, mut mock_access| {
                             let mut group = c.benchmark_group("brotli_compress_decompress");
 
-                            for size in [8, 64, 128, 256, 512, 1024] {
+                            // Benchmark just the configurations of the OSDI'25 paper:
+                            for size in [1024] {
+                                // for size in [8, 64, 128, 256, 512, 1024] {
                                 let tput_bytes: u64 = size as u64;
 
                                 group.throughput(Throughput::Bytes(tput_bytes as u64));
