@@ -37,8 +37,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     omniglot::id::lifetime::OGLifetimeBranding::new(|brand| {
         with_lfi_sysv_amd64_rt_lib(brand, |lib, mut alloc, mut access| {
             let mut group = c.benchmark_group("validation");
-            //for size in (0..).map(|n| 8usize.pow(n)).take(10) {
-            for size in [1, 8, 64, 1024, 8 * 1028, 1024 * 1024] {
+            // Benchmark just the configurations of the original OSDI'25 paper:
+            for size in [64, 8 * 1028] {
                 let to_validate_bytes = (&mut prng)
                     .sample_iter(Uniform::new_inclusive(u8::MIN, u8::MAX).unwrap())
                     .take(size)

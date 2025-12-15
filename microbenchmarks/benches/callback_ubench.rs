@@ -104,7 +104,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     omniglot::id::lifetime::OGLifetimeBranding::new(|brand| {
         with_lfi_sysv_amd64_rt_lib(brand, |lib, mut alloc, mut access| {
             lib.rt().setup_callback(&mut |_, _, _, _|(), &mut alloc, |base_callback, alloc| {
-                // 8 callbacks!
+                // 1 callbacks!
                 bench_callback(&lib, alloc, &mut access, base_callback, 1, &mut prng, c);
 
             with_callback(&lib, alloc, &mut access, |lib, alloc, access| {

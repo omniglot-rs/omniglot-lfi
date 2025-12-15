@@ -337,6 +337,9 @@
               clang
               lldb
               gdb
+
+              # For the benchmark script:
+              cargo-criterion
             ];
           in
           {
