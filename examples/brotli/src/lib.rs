@@ -215,7 +215,7 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
     let (rt, alloc, access) = omniglot_lfi::amd64::OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
         include_bytes!(concat!(
             env!("OG_BROTLI_LFI_BUILD_PATH"),
-            "/og_brotli_default.lfi"
+            "/og_brotli_mimalloc_default.lfi"
         )),
         c"brotli".into(),
         [].into_iter(),

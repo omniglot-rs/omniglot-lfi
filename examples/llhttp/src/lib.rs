@@ -39,7 +39,7 @@ pub fn new_lfi_sysv_amd64_rt_lib() -> (LlhttpOGRuntimeScopes, *mut llhttp_bindin
     let (rt, mut alloc, mut access) = OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
         include_bytes!(concat!(
             env!("OG_LLHTTP_LFI_BUILD_PATH"),
-            "/og_llhttp_default.lfi"
+            "/og_llhttp_mimalloc_default.lfi"
         )),
         c"llhttp".into(),
         [].into_iter(),

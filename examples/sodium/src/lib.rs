@@ -122,7 +122,7 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
         omniglot_lfi::amd64::OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
             include_bytes!(concat!(
                 env!("OG_SODIUM_LFI_BUILD_PATH"),
-                "/og_sodium_default.lfi"
+                "/og_sodium_mimalloc_default.lfi"
             )),
             c"sodium".into(),
             [].into_iter(),

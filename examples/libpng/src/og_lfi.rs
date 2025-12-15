@@ -23,7 +23,7 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
     let (rt, alloc, access) = omniglot_lfi::amd64::OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
         include_bytes!(concat!(
             env!("OG_LIBPNG_LFI_BUILD_PATH"),
-            "/og_libpng_auto_allow_revoke.lfi"
+            "/og_libpng_mimalloc_auto_allow_revoke.lfi"
         )),
         c"libpng".into(),
         [].into_iter(),
