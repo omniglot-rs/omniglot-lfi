@@ -48,6 +48,12 @@ pub fn fetch_prebuilt(
         None => {
             // No cached checksum written. We may have a partially extracted
             // archive, attempt to delete:
+            if target_path.exists() {
+                println!(
+                    "Removing stale {} without checksum file at {:?}",
+                    archive_name, target_path,
+                );
+            }
             let _ = std::fs::remove_dir_all(target_path);
         }
         Some(csum) if csum != archive_manifest.sha256 => {
@@ -96,12 +102,25 @@ pub fn fetch_prebuilt(
                     archive_name, archive_manifest.url, target_path,
                 );
                 reqwest::blocking::get(&archive_manifest.url)
-                    .unwrap_or_else(|_| {
-                        panic!("Failed to download prebuilt {archive_name} archive")
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "Failed to download prebuilt {archive_name} archive: {:?}",
+                            e
+                        )
+                    })
+                    .error_for_status()
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "Failed to download prebuilt {archive_name} archive: {:?}",
+                            e
+                        )
                     })
                     .bytes()
-                    .unwrap_or_else(|_| {
-                        panic!("Failed to read response bytes for {archive_name} archive")
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "Failed to read response bytes for {archive_name} archive: {:?}",
+                            e
+                        )
                     })
                     .to_vec()
             }
@@ -135,4 +154,17 @@ pub fn fetch_prebuilt(
         )
         .unwrap();
     }
+
+    // Make sure to re-run when target path or the checksum file are changed:
+    println!(
+        "cargo:rerun-if-changed={}",
+        target_path.canonicalize().unwrap().display()
+    );
+    println!(
+        "cargo:rerun-if-changed={}",
+        target_archive_checksum_file_path
+            .canonicalize()
+            .unwrap()
+            .display(),
+    );
 }

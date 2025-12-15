@@ -37,7 +37,7 @@ fn main() {
             &target_path,
             // Path to store the checksum of the unpacked archive, used for
             // caching purposes:
-            &target_path.join("og_llhttp_lfi_prebuilt_archive_sha256.txt"),
+            &target_path_base.join("og_llhttp_lfi_prebuilt_archive_sha256.txt"),
             // Path to the JSON manifest containing the archive's URL and
             // SHA-256 checksum:
             &fetch_prebuilt::read_archive_manifest(

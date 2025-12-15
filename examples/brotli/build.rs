@@ -21,7 +21,10 @@ fn main() {
         );
         PathBuf::from(LOCAL_OG_BROTLI_LFI_BUILD_DIR)
     } else {
-        let target_path = out_path.join("og_brotli_lfi_prebuilt");
+        // Save to a temporary directory. Cargo is too aggressive about cleaning
+        // the `OUT_DIR`, which causes frequent re-downloads:
+        let target_path_base = std::env::temp_dir().join("omniglot-lfi-example-brotli");
+        let target_path = target_path_base.join("og_brotli_lfi_prebuilt");
 
         fetch_prebuilt::fetch_prebuilt(
             // Archive name:
@@ -34,7 +37,7 @@ fn main() {
             &target_path,
             // Path to store the checksum of the unpacked archive, used for
             // caching purposes:
-            &out_path.join("og_brotli_lfi_prebuilt_archive_sha256.txt"),
+            &target_path_base.join("og_brotli_lfi_prebuilt_archive_sha256.txt"),
             // Path to the JSON manifest containing the archive's URL and
             // SHA-256 checksum:
             &fetch_prebuilt::read_archive_manifest(
