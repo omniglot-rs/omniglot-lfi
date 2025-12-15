@@ -12,15 +12,22 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("llhttp_parse");
 
     for threads in (0..).map(|n| 2usize.pow(n)).take(4) {
+        println!("Creating rayon ThreadPool with {threads} threads");
+
+        // This needs to run outside of `bench_with_input`, because that runs
+        // the provided closure multiple times, creating a bunch of different
+        // threads, and eventally exhausting virtual / physical memory up to the
+        // point where we can't create any more LFI engines (as we don't
+        // implement destructors yet). Also, creating new engines is unnecessary:
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap();
+
         group.bench_with_input(
-            BenchmarkId::new(&format!("{}_threads", threads), threads),
+            BenchmarkId::new("llhttp_parse_threads", threads),
             &threads,
             |b, _| {
-                let pool = rayon::ThreadPoolBuilder::new()
-                    .num_threads(threads)
-                    .build()
-                    .unwrap();
-
                 pool.install(|| {
                     b.iter(|| {
                         rayon::iter::repeat(include_bytes!("../get_wikipedia_org_req.txt"))
