@@ -29,4 +29,11 @@ impl OGLFIMemoryAccessConfig {
         enable_sandbox_stack_access: true,
         enable_allowed_memory_access: true,
     };
+
+    pub const REQUIRE_ALLOW_REVOKE: Self = OGLFIMemoryAccessConfig {
+        expose_boxrt_allow_revoke: true,
+        enable_all_sandbox_memory_access: false,
+        enable_sandbox_stack_access: false,
+        enable_allowed_memory_access: true,
+    };
 }
