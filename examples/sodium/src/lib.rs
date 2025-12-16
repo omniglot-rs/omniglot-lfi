@@ -126,7 +126,8 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
             )),
             c"sodium".into(),
             [].into_iter(),
-            omniglot_lfi::OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE,
+	    // sodium only requires access to host-stacked allocations:
+            omniglot_lfi::OGLFIMemoryAccessConfig::REQUIRE_ALLOW_REVOKE,
             brand,
         )
         .unwrap();

@@ -219,7 +219,8 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
         )),
         c"brotli".into(),
         [].into_iter(),
-        omniglot_lfi::OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE,
+	// Brotli only requires access to host-stacked allocations:
+        omniglot_lfi::OGLFIMemoryAccessConfig::REQUIRE_ALLOW_REVOKE,
         brand,
     )
     .unwrap();

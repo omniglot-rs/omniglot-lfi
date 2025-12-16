@@ -43,7 +43,8 @@ pub fn new_lfi_sysv_amd64_rt_lib() -> (LlhttpOGRuntimeScopes, *mut llhttp_bindin
         )),
         c"llhttp".into(),
         [].into_iter(),
-        omniglot_lfi::OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE,
+	// llhttp only requires access to host-stacked allocations:
+        omniglot_lfi::OGLFIMemoryAccessConfig::REQUIRE_ALLOW_REVOKE,
         brand,
     )
     .unwrap();
