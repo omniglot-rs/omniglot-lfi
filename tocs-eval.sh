@@ -50,6 +50,7 @@ run_benchmark "ubench_setup" "process_startup_demo_nop" "" "" ""
 run_benchmark "ubench_validation" "validation_ubench" "" "" ""
 run_benchmark "ubench_upgrade" "upgrade_ubench" "" "" ""
 run_benchmark "ubench_callback" "callback_ubench" "" "" ""
+run_benchmark "ubench_allow_revoke" "allow_revoke_ubench" "" "" ""
 run_benchmark "brotli_checked" "brotli_compression_comparison" "brotli-checked/" "" ""
 run_benchmark "brotli_unchecked" "brotli_compression_comparison" "brotli-unchecked/" \
         "--features disable_upgrade_checks,disable_validation_checks" ""
