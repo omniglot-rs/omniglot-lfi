@@ -52,13 +52,17 @@ run_benchmark "ubench_upgrade" "upgrade_ubench" "" "" ""
 run_benchmark "ubench_callback" "callback_ubench" "" "" ""
 run_benchmark "brotli_checked" "brotli_compression_comparison" "brotli-checked/" "" ""
 run_benchmark "brotli_unchecked" "brotli_compression_comparison" "brotli-unchecked/" \
-	"--features disable_upgrade_checks,disable_validation_checks" ""
+        "--features disable_upgrade_checks,disable_validation_checks" ""
 run_benchmark "sodium_checked" "sodium_hash_comparison" "sodium-checked/" "" ""
 run_benchmark "sodium_unchecked" "sodium_hash_comparison" "sodium-unchecked/" \
-	"--features disable_upgrade_checks,disable_validation_checks" ""
-run_benchmark "libpng_checked" "libpng_decode_comparison" "libpng-checked/" "" "1"
+        "--features disable_upgrade_checks,disable_validation_checks" ""
+run_benchmark "libpng_checked" "libpng_decode_comparison" "libpng-checked/" \
+        "--features bench_table_only" "1"
 run_benchmark "libpng_unchecked" "libpng_decode_comparison" "libpng-unchecked/" \
-	"--features disable_upgrade_checks,disable_validation_checks" "1"
+        "--features disable_upgrade_checks,disable_validation_checks,bench_table_only" "1"
+
+# Full sweep over libpng images, takes a long time:
+run_benchmark "libpng_checked_full" "libpng_decode_comparison" "libpng-checked/" "" "1"
 
 echo
 echo
@@ -157,5 +161,5 @@ echo
 echo
 echo "========= FIGURE 5: libpng Sandcrust vs. Omniglot =========="
 echo
-./generate-libpng-sandcrust-omniglot-comparison-plot.py libpng_omniglot_sandcrust_comparison libpng_checked_checkpoint.json
+./generate-libpng-sandcrust-omniglot-comparison-plot.py libpng_omniglot_sandcrust_comparison libpng_checked_full_checkpoint.json
 

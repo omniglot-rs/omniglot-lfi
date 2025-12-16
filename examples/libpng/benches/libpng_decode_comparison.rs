@@ -142,6 +142,15 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 vec![0; max_buffer_size.div_ceil(std::mem::size_of::<usize>())];
 
             for (test_label, png_image, (_rows, _cols, buffer_size)) in &test_images {
+                // When `bench_table_only` is set, just benchmark configurations
+                // for the main result table, not the comparison graph:
+                if (cfg!(feature = "bench_table_only")) && test_label != "big_building_001.0p.png" {
+                    println!(
+                        "Skipping image {test_label:?} for {{auto,explicit}}_allow_revoke bench"
+                    );
+                    continue;
+                }
+
                 let tput_bytes: u64 = *buffer_size as u64;
 
                 group.throughput(Throughput::Bytes(tput_bytes as u64));

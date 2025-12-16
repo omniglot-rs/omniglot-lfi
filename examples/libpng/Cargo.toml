@@ -8,6 +8,7 @@ disable_upgrade_checks = ["omniglot/unsound", "omniglot/disable_upgrade_checks"]
 disable_validation_checks = ["omniglot/unsound", "omniglot/disable_validation_checks"]
 explicit_allow_revoke = []
 auto_allow_revoke = []
+bench_table_only = []
 
 [build-dependencies]
 bindgen.workspace = true
