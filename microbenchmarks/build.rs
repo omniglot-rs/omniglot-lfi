@@ -71,6 +71,7 @@ fn main() {
                 OsStr::new("-fPIC"),     // Produce PIC code to support loading as shared lib
                 OsStr::new("-rdynamic"), // Add all symbols (not just used) to the ELF
                 OsStr::new("-shared"),   // Produce a shared object
+                OsStr::new("liboglfiubench_lfi/og_boxrt_mock.c"),
                 OsStr::new("liboglfiubench_lfi/og_lfi_ubench.c"),
                 OsStr::new("-o"),
                 out_path.join("liboglfiubench.so").as_os_str(),

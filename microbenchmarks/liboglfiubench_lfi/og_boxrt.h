@@ -1,10 +1,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-typedef bool (*og_allow_cb)(void *start, size_t size, bool mutable);
-typedef bool (*og_revoke_cb)(void *start);
+// Available to the library, used to allow certain memory to the Omniglot host:
+void og_boxrt_allow(void *start, size_t size, bool mutable);
 
-void og_boxrt_init(og_allow_cb allow_cb, og_revoke_cb revoke_cb);
-
-/* void og_allow(void *start, size_t size); */
-/* void og_revoke(void *start); */
+// Available to the library, used to revoke certain memory to the Omniglot host:
+void og_boxrt_revoke(void *ptr);

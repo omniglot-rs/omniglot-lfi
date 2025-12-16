@@ -5,6 +5,10 @@
 // Simple function that does nothing and just immediately returns:
 void demo_nop();
 
+// Function that calls `og_boxrt_allow` and then immediately
+// afterwards `og_boxrt_revoke`:
+void demo_allow_revoke(void *ptr, size_t size, bool mutable);
+
 // Writes an invalid boolean to the target pointer:
 bool demo_write_invalid_bool(bool* target);
 

@@ -41,3 +41,6 @@ fntab_id = 12
 
 [functions.demo_write_invalid_bool]
 fntab_id = 13
+
+[functions.demo_allow_revoke]
+fntab_id = 14

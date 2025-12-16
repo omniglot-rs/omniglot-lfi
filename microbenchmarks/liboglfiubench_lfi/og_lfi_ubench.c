@@ -1,4 +1,5 @@
 #include "og_lfi_ubench.h"
+#include "og_boxrt.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -9,6 +10,11 @@
 extern size_t og_callback(size_t id, size_t arg0, size_t arg1, size_t arg2, size_t arg3);
 
 void demo_nop() {}
+
+void demo_allow_revoke(void *ptr, size_t size, bool mutable) {
+    og_boxrt_allow(ptr, size, mutable);
+    og_boxrt_revoke(ptr);
+}
 
 bool demo_write_invalid_bool(bool* target) {
     char* a = (char*) target;
