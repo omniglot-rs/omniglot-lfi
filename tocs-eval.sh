@@ -60,6 +60,10 @@ run_benchmark "libpng_checked" "libpng_decode_comparison" "libpng-checked/" \
         "--features bench_table_only" "1"
 run_benchmark "libpng_unchecked" "libpng_decode_comparison" "libpng-unchecked/" \
         "--features disable_upgrade_checks,disable_validation_checks,bench_table_only" "1"
+run_benchmark "libpng_explicit_allow_revoke" "libpng_decode_comparison" "libpng-explicit-allow-revoke/" \
+        "--features explicit_allow_revoke,bench_table_only" "1"
+run_benchmark "libpng_auto_allow_revoke" "libpng_decode_comparison" "libpng-auto-allow-revoke/" \
+        "--features auto_allow_revoke,bench_table_only" "1"
 
 # Full sweep over libpng images, takes a long time:
 run_benchmark "libpng_checked_full" "libpng_decode_comparison" "libpng-checked/" "" "1"
