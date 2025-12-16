@@ -67,7 +67,8 @@ void *__wrap_malloc(size_t size) {
 void __real_free(void *ptr);
 void __wrap_free(void *ptr) {
 #ifdef OG_BOXRT_AUTO_ALLOW_REVOKE
-    if (OG_BOXRT_STATE.initialized && OG_BOXRT_STATE.revoke_cb) {
+    // Don't do anything for a null pointer:
+    if (ptr && OG_BOXRT_STATE.initialized && OG_BOXRT_STATE.revoke_cb) {
 	bool revoke_res = OG_BOXRT_STATE.revoke_cb(ptr);
 	if (!revoke_res) {
 	    abort();
