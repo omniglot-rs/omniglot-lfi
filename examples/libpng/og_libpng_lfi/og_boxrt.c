@@ -5,6 +5,9 @@
 
 #include "og_boxrt.h"
 
+typedef bool (*og_allow_cb)(void *start, size_t size, bool mutable);
+typedef bool (*og_revoke_cb)(void *start);
+
 struct og_boxrt_state {
     _Atomic bool initialized;
 
@@ -18,6 +21,7 @@ struct og_boxrt_state {
 
 struct og_boxrt_state OG_BOXRT_STATE = { .initialized = false };
 
+// To be called by the Omniglot LFI runtime, not exposed in header file:
 void og_boxrt_init(og_allow_cb allow_cb, og_revoke_cb revoke_cb) {
     struct og_boxrt_state *state = &OG_BOXRT_STATE;
 
@@ -32,6 +36,26 @@ void og_boxrt_init(og_allow_cb allow_cb, og_revoke_cb revoke_cb) {
 
     // Indicate that the state has been initialized:
     state->initialized = true;
+}
+
+// Available to the library, used to allow certain memory to the Omniglot host:
+void og_boxrt_allow(void *start, size_t size, bool mutable) {
+    if (OG_BOXRT_STATE.initialized && OG_BOXRT_STATE.allow_cb) {
+        bool allow_res = OG_BOXRT_STATE.allow_cb(start, size, mutable);
+	if (!allow_res) {
+	    abort();
+	}
+    }
+}
+
+// Available to the library, used to revoke certain memory to the Omniglot host:
+void og_boxrt_revoke(void *ptr) {
+    if (OG_BOXRT_STATE.initialized && OG_BOXRT_STATE.revoke_cb) {
+	bool revoke_res = OG_BOXRT_STATE.revoke_cb(ptr);
+	if (!revoke_res) {
+	    abort();
+	}
+    }
 }
 
 // Wrap the following symbols:

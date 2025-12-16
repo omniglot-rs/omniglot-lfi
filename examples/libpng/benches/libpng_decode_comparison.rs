@@ -133,7 +133,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 .malloc(max_buffer_size, &mut alloc, &mut access)
                 .unwrap() as *mut u8;
             assert!(og_lfi_dst_buffer as usize % std::mem::align_of::<*mut u8>() == 0);
-            println!("ran malloc, ptr: {:p}", og_lfi_dst_buffer);
+            println!(
+                "ran malloc, ptr: {:p}, len: {max_buffer_size}",
+                og_lfi_dst_buffer
+            );
 
             let mut unsafe_dst_buffer =
                 vec![0; max_buffer_size.div_ceil(std::mem::size_of::<usize>())];
@@ -192,6 +195,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                                                     &lib,
                                                     alloc,
                                                     &mut access,
+                                                    cfg!(feature = "explicit_allow_revoke"),
+                                                    |alloc_size, lib, alloc, access| {
+                                                        lib.rt()
+                                                            .malloc(alloc_size, alloc, access)
+                                                            .unwrap()
+                                                    },
                                                     png_ptr,
                                                     info_ptr,
                                                     png_image,

@@ -29,3 +29,9 @@ fntab_id = 9
 
 [functions.png_destroy_read_struct]
 fntab_id = 10
+
+[functions.png_set_read_fn_allow_revoke]
+fntab_id = 11
+
+[functions.png_free_read_fn_allow_revoke_state]
+fntab_id = 12

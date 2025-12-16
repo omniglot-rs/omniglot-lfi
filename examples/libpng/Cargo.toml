@@ -6,6 +6,8 @@ edition = "2021"
 [features]
 disable_upgrade_checks = ["omniglot/unsound", "omniglot/disable_upgrade_checks"]
 disable_validation_checks = ["omniglot/unsound", "omniglot/disable_validation_checks"]
+explicit_allow_revoke = []
+auto_allow_revoke = []
 
 [build-dependencies]
 bindgen.workspace = true

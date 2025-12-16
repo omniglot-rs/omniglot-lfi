@@ -21,13 +21,24 @@ pub fn with_lfi_sysv_amd64_rt_lib<ID: OGID, R>(
     ) -> R,
 ) -> R {
     let (rt, alloc, access) = omniglot_lfi::amd64::OGLFISysVAMD64Runtime::from_lfi_lib_bytes(
-        include_bytes!(concat!(
-            env!("OG_LIBPNG_LFI_BUILD_PATH"),
-            "/og_libpng_mimalloc_default.lfi"
-        )),
+        if cfg!(feature = "auto_allow_revoke") {
+            include_bytes!(concat!(
+                env!("OG_LIBPNG_LFI_BUILD_PATH"),
+                "/og_libpng_mimalloc_auto_allow_revoke.lfi"
+            ))
+        } else {
+            include_bytes!(concat!(
+                env!("OG_LIBPNG_LFI_BUILD_PATH"),
+                "/og_libpng_mimalloc_default.lfi"
+            ))
+        },
         c"libpng".into(),
         [].into_iter(),
-        omniglot_lfi::OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE,
+        if cfg!(feature = "explicit_allow_revoke") || cfg!(feature = "auto_allow_revoke") {
+            omniglot_lfi::OGLFIMemoryAccessConfig::STACK_OR_REQUIRE_ALLOW_REVOKE
+        } else {
+            omniglot_lfi::OGLFIMemoryAccessConfig::ALL_MEMORY_ACCESSIBLE
+        },
         brand,
     )
     .unwrap();
@@ -139,6 +150,13 @@ pub fn decode_png<ID: OGID, RT: OGRuntime<ID = ID>, L: LibPng<ID, RT, RT = RT>, 
     lib: &L,
     alloc: &mut AllocScope<RT::AllocTracker<'_>, RT::ID>,
     access: &mut AccessScope<RT::ID>,
+    allow_revoke_read_fn: bool,
+    mut malloc: impl FnMut(
+        usize,
+        &L,
+        &mut AllocScope<RT::AllocTracker<'_>, RT::ID>,
+        &mut AccessScope<RT::ID>,
+    ) -> *mut std::ffi::c_void,
     png_ptr: *mut png_struct,
     info_ptr: *mut png_info,
     png_image: &[u8],
@@ -177,19 +195,37 @@ pub fn decode_png<ID: OGID, RT: OGRuntime<ID = ID>, L: LibPng<ID, RT, RT = RT>, 
             |callback_ptr, alloc| {
                 // Callback is valid in this scope. Set it to be called whenever libpng
                 // wants to read from the compressed image:
-                lib.png_set_read_fn(
-                    png_ptr,
-                    ptr::null_mut(), /* no user IO ptr */
-                    // TODO: provide nicer API for this -- this is a "safe transmute"
-                    unsafe {
-                        std::mem::transmute::<*const _, Option<unsafe extern "C" fn(_, _, _)>>(
-                            callback_ptr,
-                        )
-                    },
-                    alloc,
-                    access,
-                )
-                .unwrap();
+                let allow_revoke_read_fn_state = if allow_revoke_read_fn {
+                    Some(lib.png_set_read_fn_allow_revoke(
+			png_ptr,
+			ptr::null_mut(), /* no user IO ptr */
+			// TODO: provide nicer API for this -- this is a "safe transmute"
+			unsafe {
+                            std::mem::transmute::<*const _, Option<unsafe extern "C" fn(_, _, _)>>(
+				callback_ptr,
+                            )
+			},
+			alloc,
+			access,
+                    )
+			.unwrap()
+			.valid_ptr())
+                } else {
+                    lib.png_set_read_fn(
+                        png_ptr,
+                        ptr::null_mut(), /* no user IO ptr */
+                        // TODO: provide nicer API for this -- this is a "safe transmute"
+                        unsafe {
+                            std::mem::transmute::<*const _, Option<unsafe extern "C" fn(_, _, _)>>(
+                                callback_ptr,
+                            )
+                        },
+                        alloc,
+                        access,
+                    )
+                    .unwrap();
+                    None
+                };
 
                 // Read image dimensions:
                 assert!(lib
@@ -220,11 +256,8 @@ pub fn decode_png<ID: OGID, RT: OGRuntime<ID = ID>, L: LibPng<ID, RT, RT = RT>, 
                     );
                     dst_buffer
                 } else {
-                    let dst_buffer: *mut u8 = lib
-                        .malloc(alloc_size as u64, alloc, access)
-                        .unwrap()
-                        .validate()
-                        .unwrap() as *mut u8;
+                    let dst_buffer: *mut u8 = malloc(alloc_size, lib, alloc, access) as *mut u8;
+                    // println!("Allocated dst_buffer at {dst_buffer:p} of {alloc_size} bytes");
                     assert!(
                         !dst_buffer.is_null(),
                         "Failed to alloc {} bytes for the decompressed image!",
@@ -255,6 +288,11 @@ pub fn decode_png<ID: OGID, RT: OGRuntime<ID = ID>, L: LibPng<ID, RT, RT = RT>, 
 
                 lib.png_read_image_nojmp(png_ptr, row_pointers_arr, alloc, access)
                     .unwrap();
+
+                if let Some(state) = allow_revoke_read_fn_state {
+                    lib.png_free_read_fn_allow_revoke_state(state, alloc, access)
+                        .unwrap();
+                }
 
                 // TODO: we only need a second upgrade when the
                 // `alloc_scope_separate_active_valid_lt` feature on
@@ -293,6 +331,10 @@ pub fn ef_mpk_main() {
                 &lib,
                 &mut alloc,
                 &mut access,
+                cfg!(feature = "explicit_allow_revoke"),
+                |alloc_size, lib, alloc, access| {
+                    lib.rt().malloc(alloc_size, alloc, access).unwrap()
+                },
                 png_ptr,
                 info_ptr,
                 &file_buf,

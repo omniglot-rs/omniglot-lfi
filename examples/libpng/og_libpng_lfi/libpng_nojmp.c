@@ -1,4 +1,9 @@
 #include "libpng_nojmp.h"
+#include "og_boxrt.h"
+
+// -----------------------------------------------------------------------------
+// Wrappers around png_* functions that convert setjmp error handling into
+// boolean return values:
 
 bool png_read_info_nojmp(png_structrp png_ptr, png_inforp info_ptr) {
   if (0 != setjmp(png_jmpbuf(png_ptr))) {
@@ -18,6 +23,60 @@ bool png_read_image_nojmp(png_structrp png_ptr, png_bytepp image) {
   png_read_image(png_ptr, image);
 
   return true;
+}
+
+// -----------------------------------------------------------------------------
+// Wrapper around `png_set_read_fn` which performs an `og_boxrt_allow` on the
+// buffer space that's supposed to be written to by the host, and an
+// `og_boxrt_revoke` afterwards.
+//
+// Stores the proper callback and its user data on
+// the heap:
+
+typedef struct {
+    png_voidp io_ptr;
+    png_rw_ptr read_data_fn;
+} png_read_fn_data_wrapped_t;
+
+void png_read_fn_allow_revoke_wrapper(png_structp png, png_bytep ptr, size_t size) {
+    // First, allow the host access to the memory:
+    og_boxrt_allow(ptr, size, true);
+
+    // Retrieve the I/O state:
+    png_read_fn_data_wrapped_t *wrapped = png_get_io_ptr(png);
+
+    // Restore the original I/O state. This can only be done by re-setting the
+    // read_fn, which we set to ourselves (albeit with the original state):
+    png_set_read_fn(png, wrapped->io_ptr, png_read_fn_allow_revoke_wrapper);
+
+    // Now, run the original callback:
+    wrapped->read_data_fn(png, ptr, size);
+
+    // Restore our own I/O state, saving any potential I/O state changes by the
+    // callback.
+    wrapped->io_ptr = png_get_io_ptr(png);
+    png_set_read_fn(png, wrapped, png_read_fn_allow_revoke_wrapper);
+
+    // Finally, revoke access to the memory:
+    og_boxrt_revoke(ptr);
+}
+
+void *png_set_read_fn_allow_revoke(png_structrp png, png_voidp io_ptr,
+				   png_rw_ptr read_data_fn) {
+    // Place the original arguments onto the heap:
+    png_read_fn_data_wrapped_t *wrapped = malloc(sizeof(png_read_fn_data_wrapped_t));
+    wrapped->io_ptr = io_ptr;
+    wrapped->read_data_fn = read_data_fn;
+
+    // Register our own callback:
+    png_set_read_fn(png, wrapped, png_read_fn_allow_revoke_wrapper);
+
+    // Return a reference to the wrapped data, so it can be freed later:
+    return wrapped;
+}
+
+void png_free_read_fn_allow_revoke_state(void *state) {
+    free(state);
 }
 
 // -----------------------------------------------------------------------------
