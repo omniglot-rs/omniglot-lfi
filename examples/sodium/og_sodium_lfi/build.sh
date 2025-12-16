@@ -12,6 +12,12 @@ function buildSodium {
     TOOLCHAIN_PREFIX="$1"
     SUFFIX="$2"
     HOST_TUPLE="$3"
+    BUILD_PIC="$4"
+
+    PIC_FLAGS=""
+    if [ "${BUILD_PIC}" != "" ]; then
+	PIC_FLAGS="--with-pic"
+    fi
 
     mkdir -p "./build/sodium_${SUFFIX}"
     pushd "./build/sodium_${SUFFIX}"
@@ -21,6 +27,7 @@ function buildSodium {
 	--prefix="$(realpath ./install)" \
 	--host="${HOST_TUPLE}" \
 	--disable-ssp \
+	${PIC_FLAGS} \
 	CC=${TOOLCHAIN_PREFIX}clang
     make install
     popd
@@ -71,15 +78,30 @@ function buildOGLFIProgram() {
         -o "./build/og_sodium_${VARIANT}.lfi"
 }
 
+buildNativeSharedLib() {
+    # Link into shared library:
+    clang \
+        -Wl,--whole-archive "./build/sodium_native_pic/install/lib/libsodium.a" \
+        -Wl,--no-whole-archive \
+        -Wl,--export-dynamic \
+        -shared \
+	-o "./build/og_sodium_native_pic.so"
+}
+
 rm -rf ./build
 
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildSodium "${LFI_TOOLCHAIN_PREFIX}" "lfi" "x86_64-lfi-linux-musl"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc"
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildSodium "${LFI_TOOLCHAIN_PREFIX}" "lfi" "x86_64-lfi-linux-musl" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc" ""
 
-PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildSodium "${HOST_TOOLCHAIN_PREFIX}" "native" "x86_64-unknown-linux-musl"
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildSodium "${HOST_TOOLCHAIN_PREFIX}" "native" "x86_64-unknown-linux-musl" ""
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildSodium "${HOST_TOOLCHAIN_PREFIX}" "native_pic" "x86_64-unknown-linux-musl" "1"
+# Build the final shared library with a non-musl toolchain, to allow loading on
+# glibc systems. This *should* work if zlib/libpng don't rely on any too exotic
+# musl behavior when compiled for that libc.
+buildNativeSharedLib
 
 pushd ./build
 tar -czvf ./og_sodium_lfi.tar.gz \
@@ -88,5 +110,7 @@ tar -czvf ./og_sodium_lfi.tar.gz \
     ./og_sodium_musl_auto_allow_revoke.lfi \
     ./og_sodium_mimalloc_auto_allow_revoke.lfi \
     ./sodium_lfi/install \
-    ./sodium_native/install
+    ./sodium_native/install \
+    ./sodium_native_pic/install \
+    ./og_sodium_native_pic.so
 popd

@@ -11,10 +11,17 @@ HOST_TOOLCHAIN_PREFIX="x86_64-unknown-linux-musl-"
 function buildBrotli {
     TOOLCHAIN_PREFIX="$1"
     SUFFIX="$2"
+    BUILD_PIC="$3"
+
+    PIC_FLAGS=""
+    if [ "${BUILD_PIC}" != "" ]; then
+	PIC_FLAGS="-DCMAKE_POSITION_INDEPENDENT_CODE=ON"
+    fi
 
     mkdir -p "./build/brotli_${SUFFIX}"
     pushd "./build/brotli_${SUFFIX}"
     cmake \
+	${PIC_FLAGS} \
         -DBUILD_SHARED_LIBS=OFF \
         -D"CMAKE_C_COMPILER=${TOOLCHAIN_PREFIX}clang" \
         -D"CMAKE_CXX_COMPILER=${TOOLCHAIN_PREFIX}clang++" \
@@ -73,15 +80,33 @@ function buildOGLFIProgram() {
         -o "./build/og_brotli_${VARIANT}.lfi"
 }
 
+buildNativeSharedLib() {
+    # Link into shared library:
+    clang \
+        -Wl,--whole-archive "./build/brotli_native_pic/install/lib/libbrotlicommon.a" \
+        -Wl,--whole-archive "./build/brotli_native_pic/install/lib/libbrotlienc.a" \
+        -Wl,--whole-archive "./build/brotli_native_pic/install/lib/libbrotlidec.a" \
+        -Wl,--no-whole-archive \
+        -Wl,--export-dynamic \
+	-lm \
+        -shared \
+	-o "./build/og_brotli_native_pic.so"
+}
+
 rm -rf ./build
 
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildBrotli "${LFI_TOOLCHAIN_PREFIX}" "lfi"
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildBrotli "${LFI_TOOLCHAIN_PREFIX}" "lfi" ""
 PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl"
 PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc"
 PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl"
 PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc"
 
 PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildBrotli "${HOST_TOOLCHAIN_PREFIX}" "native"
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildBrotli "${HOST_TOOLCHAIN_PREFIX}" "native_pic" "1"
+# Build the final shared library with a non-musl toolchain, to allow loading on
+# glibc systems. This *should* work if zlib/libpng don't rely on any too exotic
+# musl behavior when compiled for that libc.
+buildNativeSharedLib
 
 pushd ./build
 tar -czvf ./og_brotli_lfi.tar.gz \
@@ -90,5 +115,7 @@ tar -czvf ./og_brotli_lfi.tar.gz \
     ./og_brotli_musl_auto_allow_revoke.lfi \
     ./og_brotli_mimalloc_auto_allow_revoke.lfi \
     ./brotli_lfi/install \
-    ./brotli_native/install
+    ./brotli_native/install \
+    ./brotli_native_pic/install \
+    ./og_brotli_native_pic.so
 popd

@@ -14,10 +14,17 @@ HOST_TOOLCHAIN_PREFIX="x86_64-unknown-linux-musl-"
 function buildZlib {
     TOOLCHAIN_PREFIX="$1"
     SUFFIX="$2"
+    BUILD_PIC="$3"
+
+    PIC_FLAGS=""
+    if [ "${BUILD_PIC}" != "" ]; then
+	PIC_FLAGS="-DCMAKE_POSITION_INDEPENDENT_CODE=ON"
+    fi
 
     mkdir -p "./build/zlib_${SUFFIX}"
     pushd "./build/zlib_${SUFFIX}"
     cmake \
+	${PIC_FLAGS} \
         -D"CMAKE_C_COMPILER=${TOOLCHAIN_PREFIX}clang" \
         -D"CMAKE_CXX_COMPILER=${TOOLCHAIN_PREFIX}clang++" \
         -D"CMAKE_LINKER=${TOOLCHAIN_PREFIX}ld" \
@@ -31,10 +38,17 @@ function buildLibPNG {
     TOOLCHAIN_PREFIX="$1"
     SUFFIX="$2"
     ZLIB_INSTALL_DIR="$(realpath "$3")"
+    BUILD_PIC="$4"
+
+    PIC_FLAGS=""
+    if [ "${BUILD_PIC}" != "" ]; then
+	PIC_FLAGS="-DCMAKE_POSITION_INDEPENDENT_CODE=ON"
+    fi
 
     mkdir -p "./build/libpng_${SUFFIX}"
     pushd "./build/libpng_${SUFFIX}"
     cmake \
+	${PIC_FLAGS} \
 	-D"ZLIB_LIBRARY=${ZLIB_INSTALL_DIR}/lib/libz.a" \
     	-D"ZLIB_INCLUDE_DIR=${ZLIB_INSTALL_DIR}/include" \
         -D"CMAKE_C_COMPILER=${TOOLCHAIN_PREFIX}clang" \
@@ -100,17 +114,60 @@ function buildOGLFIProgram() {
         -o "./build/og_libpng_${VARIANT}.lfi"
 }
 
+buildNativeSharedLib() {
+    TOOLCHAIN_PREFIX="$1"
+
+    # Compile source files:
+    "${TOOLCHAIN_PREFIX}clang" \
+        -Wall -Werror \
+        ${VARIANT_CFLAGS} \
+        -o "./build/og_boxrt_mock_native_pic.o" \
+        og_boxrt_mock.c \
+        -c -O2 -fPIC
+    "${TOOLCHAIN_PREFIX}clang" \
+        -Wall -Werror \
+	-I "./build/libpng_native/install/include" \
+        ${VARIANT_CFLAGS} \
+        -o "./build/libpng_nojmp_native_pic.o" \
+        libpng_nojmp.c \
+        -c -O2 -fPIC
+
+    # Create object file archive:
+    rm -f "./build/og_libpng_native_pic.a"
+    llvm-ar rcs "./build/og_libpng_native_pic.a" \
+        "./build/og_boxrt_mock_native_pic.o" \
+        "./build/libpng_nojmp_native_pic.o"
+
+    # Link into shared library:
+    clang \
+        -Wl,--whole-archive "./build/og_libpng_native_pic.a" \
+	-Wl,--whole-archive "./build/zlib_native_pic/install/lib/libz.a" \
+        -Wl,--whole-archive "./build/libpng_native_pic/install/lib/libpng.a" \
+        -Wl,--no-whole-archive \
+        -Wl,--export-dynamic \
+	-lm \
+        -shared \
+	-o "./build/og_libpng_native_pic.so"
+}
+
 rm -rf ./build
 
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildZlib "${LFI_TOOLCHAIN_PREFIX}" "lfi"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildLibPNG "${LFI_TOOLCHAIN_PREFIX}" "lfi" "./build/zlib_lfi/install"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl"
-PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc"
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildZlib "${LFI_TOOLCHAIN_PREFIX}" "lfi" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildLibPNG "${LFI_TOOLCHAIN_PREFIX}" "lfi" "./build/zlib_lfi/install" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_default" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "musl_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "musl" ""
+PATH="$LFI_TOOLCHAIN_PATH:$PATH" buildOGLFIProgram "mimalloc_auto_allow_revoke" "${LFI_TOOLCHAIN_PREFIX}" "lfi" "mimalloc" ""
 
-PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildZlib "${HOST_TOOLCHAIN_PREFIX}" "native"
-PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildLibPNG "${HOST_TOOLCHAIN_PREFIX}" "native" "./build/zlib_native/install"
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildZlib "${HOST_TOOLCHAIN_PREFIX}" "native" ""
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildLibPNG "${HOST_TOOLCHAIN_PREFIX}" "native" "./build/zlib_native/install" ""
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildZlib "${HOST_TOOLCHAIN_PREFIX}" "native_pic" "1"
+PATH="$HOST_TOOLCHAIN_PATH:$PATH" buildLibPNG "${HOST_TOOLCHAIN_PREFIX}" "native_pic" "./build/zlib_native_pic/install" "1"
+# Build the final shared library with a non-musl toolchain, to allow loading on
+# glibc systems. This *should* work if zlib/libpng don't rely on any too exotic
+# musl behavior when compiled for that libc.
+buildNativeSharedLib ""
+
 
 pushd ./build
 tar -czvf ./og_libpng_lfi.tar.gz \
@@ -121,5 +178,7 @@ tar -czvf ./og_libpng_lfi.tar.gz \
     ./zlib_lfi/install \
     ./zlib_native/install \
     ./libpng_lfi/install \
-    ./libpng_native/install
+    ./libpng_native/install \
+    ./libpng_native_pic/install \
+    ./og_libpng_native_pic.so
 popd
