@@ -925,19 +925,23 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             );
         }
 
+        let og_allow_cb = self
+            .og_boxrt_callback_allow
+            .as_ref()
+            .map_or(std::ptr::null_mut(), |cb| cb.0);
+        let og_revoke_cb = self
+            .og_boxrt_callback_revoke
+            .as_ref()
+            .map_or(std::ptr::null_mut(), |cb| cb.0);
+        log::debug!(
+            "Running og_boxrt_init(\
+	     og_allow_cb = {og_allow_cb:p}, \
+	     og_revoke_cb = {og_revoke_cb:p}\
+	     )"
+        );
         let mut res = OGLFISysVAMD64InvokeRes::<Self, c_void>::new();
         self.execute(og_boxrt_init_sym, alloc_scope, access_scope, || unsafe {
-            og_boxrt_init_trampoline(
-                self.og_boxrt_callback_allow
-                    .as_ref()
-                    .map_or(std::ptr::null_mut(), |cb| cb.0),
-                self.og_boxrt_callback_revoke
-                    .as_ref()
-                    .map_or(std::ptr::null_mut(), |cb| cb.0),
-                self,
-                core::ptr::null(),
-                &mut res,
-            );
+            og_boxrt_init_trampoline(og_allow_cb, og_revoke_cb, self, core::ptr::null(), &mut res);
         })?;
         res.into_result_registers(self)?;
 
