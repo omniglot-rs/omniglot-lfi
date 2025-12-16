@@ -1008,7 +1008,24 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             malloc_trampoline(size, self, core::ptr::null(), &mut res);
         })?;
 
-        Ok(res.into_result_registers(self)?.valid_ptr())
+        let malloc_res = res.into_result_registers(self)?.valid_ptr();
+
+        // This operation may or may not have performed an implicit allow on the
+        // `malloc`'d memory. We try a second time here, in case the foreign
+        // library did not issue an allow. This is an idempotent operation:
+        if malloc_res == std::ptr::null_mut() {
+            log::trace!("Malloc returned NULL, not adding to allowed regions");
+        } else if alloc_scope.tracker().allowed_regions().borrow_mut().insert(
+            malloc_res as *mut (),
+            size,
+            true,
+        ) {
+            log::trace!("Allowed malloc'd memory at {malloc_res:p}, {size} bytes");
+        } else {
+            log::trace!("Malloc'd memory at {malloc_res:p} was already allowed");
+        }
+
+        Ok(malloc_res)
     }
 
     pub fn free(
@@ -1048,6 +1065,14 @@ impl<ID: OGID> OGLFISysVAMD64Runtime<ID> {
             free_trampoline(ptr, self, core::ptr::null(), &mut res);
         })?;
         res.into_result_registers(self)?;
+
+        // Depending on whether the free trampoline already freed the
+        // allocation, this may return false or true.
+        alloc_scope
+            .tracker()
+            .allowed_regions()
+            .borrow_mut()
+            .remove(ptr as *mut ());
 
         Ok(())
     }
