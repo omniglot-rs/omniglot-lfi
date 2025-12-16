@@ -37,7 +37,8 @@ function buildOGLFIProgram() {
     ALLOCATOR="$4"
 
     VARIANT_CFLAGS=""
-    if [ "${VARIANT}" == "auto_allow_revoke" ]; then
+    # If the variant ends with "auto_allow_revoke", enable the feature:
+    if [[ "${VARIANT}" =~ ^.*auto_allow_revoke$ ]]; then
         VARIANT_CFLAGS="${VARIANT_CFLAGS} -DOG_BOXRT_AUTO_ALLOW_REVOKE"
     fi
 
