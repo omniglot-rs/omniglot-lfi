@@ -339,7 +339,7 @@
               gdb
 
               # For the benchmark script:
-              cargo-criterion
+              cargo-criterion jq
             ];
           in
           {

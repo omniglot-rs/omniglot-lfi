@@ -1,0 +1,104 @@
+========== Omniglot-LFI TOCS Evaluation Script ==========
+==> Reusing "ubench_invoke" benchmark checkpoint ubench_invoke_checkpoint.json
+==> Reusing "ubench_setup" benchmark checkpoint ubench_setup_checkpoint.json
+==> Reusing "ubench_validation" benchmark checkpoint ubench_validation_checkpoint.json
+==> Reusing "ubench_upgrade" benchmark checkpoint ubench_upgrade_checkpoint.json
+==> Reusing "ubench_callback" benchmark checkpoint ubench_callback_checkpoint.json
+==> Running "ubench_allow_revoke" benchmark, saving results to ubench_allow_revoke_checkpoint.json
+   Compiling omniglot-lfi-microbenchmarks v0.1.0 (/mydata/omniglot-osdi25-ae/omniglot-lfi/microbenchmarks)
+    Finished `bench` profile [optimized] target(s) in 12.11s
+Gnuplot not found, using plotters backend
+Benchmarking allow_revoke_ubench/nop
+Benchmarking allow_revoke_ubench/nop: Warming up for 3.0000 s
+Benchmarking allow_revoke_ubench/nop: Collecting 100 samples in estimated 5.0005 s (25M iterations)
+Benchmarking allow_revoke_ubench/nop: Analyzing
+allow_revoke_ubench/nop time:   [202.65 ns 203.04 ns 203.51 ns]
+{"reason":"benchmark-complete","id":"allow_revoke_ubench/nop","report_directory":"/mydata/omniglot-osdi25-ae/omniglot-lfi/target/criterion/reports/allow_revoke_ubench/nop","iteration_count":[4890,9780,14670,19560,24450,29340,34230,39120,44010,48900,53790,58680,63570,68460,73350,78240,83130,88020,92910,97800,102690,107580,112470,117360,122250,127140,132030,136920,141810,146700,151590,156480,161370,166260,171150,176040,180930,185820,190710,195600,200490,205380,210270,215160,220050,224940,229830,234720,239610,244500,249390,254280,259170,264060,268950,273840,278730,283620,288510,293400,298290,303180,308070,312960,317850,322740,327630,332520,337410,342300,347190,352080,356970,361860,366750,371640,376530,381420,386310,391200,396090,400980,405870,410760,415650,420540,425430,430320,435210,440100,444990,449880,454770,459660,464550,469440,474330,479220,484110,489000],"measured_values":[991418.0,1970851.0,2979001.0,3966466.0,4959003.0,6106127.0,6952821.0,7887744.0,8939468.0,9899432.0,10894841.0,11886688.0,12879890.0,14015917.0,15062297.0,15828429.0,16875443.0,17816603.0,18744208.0,19956829.0,20819312.0,21760611.0,22786429.0,23768035.0,24731955.0,25713680.0,26661409.0,27753196.0,28695732.0,29750256.0,30614110.0,31679910.0,32657567.0,33652576.0,34790682.0,35719540.0,36659914.0,37643856.0,38503232.0,39541255.0,41179898.0,41702096.0,42497542.0,43562654.0,44630315.0,45633791.0,46414855.0,47577499.0,48413750.0,49520267.0,50570122.0,51546267.0,53326236.0,53438185.0,54402929.0,55287228.0,56343659.0,57419132.0,58520207.0,59372191.0,60467209.0,63781600.0,62351053.0,65859083.0,64273232.0,65168944.0,66149586.0,67199240.0,68257881.0,69223352.0,72905671.0,71290366.0,72158806.0,74812659.0,74255475.0,76888718.0,76289660.0,77220637.0,78199350.0,79215988.0,81207767.0,81001320.0,82162186.0,83206900.0,84092308.0,85084000.0,86025951.0,87074397.0,88251997.0,89237447.0,90157552.0,91079244.0,91954460.0,92792313.0,94053581.0,94921158.0,96008979.0,98543716.0,98140212.0,99086439.0],"unit":"ns","throughput":[],"typical":{"estimate":203.040110221534,"lower_bound":202.64585457138034,"upper_bound":203.50885883507974,"unit":"ns"},"mean":{"estimate":203.00577092094716,"lower_bound":202.6997702376456,"upper_bound":203.36000106717316,"unit":"ns"},"median":{"estimate":202.4761730288571,"lower_bound":202.4250647443215,"upper_bound":202.60579338861547,"unit":"ns"},"median_abs_dev":{"estimate":0.39626433610006934,"lower_bound":0.30072937528471655,"upper_bound":0.4978467855141697,"unit":"ns"},"slope":{"estimate":203.040110221534,"lower_bound":202.64585457138034,"upper_bound":203.50885883507974,"unit":"ns"},"change":null}
+Benchmarking allow_revoke_ubench/allow_revoke
+Benchmarking allow_revoke_ubench/allow_revoke: Warming up for 3.0000 s
+Benchmarking allow_revoke_ubench/allow_revoke: Collecting 100 samples in estimated 5.0021 s (8.3M iterations)
+Benchmarking allow_revoke_ubench/allow_revoke: Analyzing
+allow_revoke_ubench/allow_revoke
+                        time:   [599.17 ns 599.63 ns 600.17 ns]
+{"reason":"benchmark-complete","id":"allow_revoke_ubench/allow_revoke","report_directory":"/mydata/omniglot-osdi25-ae/omniglot-lfi/target/criterion/reports/allow_revoke_ubench/allow_revoke","iteration_count":[1642,3284,4926,6568,8210,9852,11494,13136,14778,16420,18062,19704,21346,22988,24630,26272,27914,29556,31198,32840,34482,36124,37766,39408,41050,42692,44334,45976,47618,49260,50902,52544,54186,55828,57470,59112,60754,62396,64038,65680,67322,68964,70606,72248,73890,75532,77174,78816,80458,82100,83742,85384,87026,88668,90310,91952,93594,95236,96878,98520,100162,101804,103446,105088,106730,108372,110014,111656,113298,114940,116582,118224,119866,121508,123150,124792,126434,128076,129718,131360,133002,134644,136286,137928,139570,141212,142854,144496,146138,147780,149422,151064,152706,154348,155990,157632,159274,160916,162558,164200],"measured_values":[992079.0,1963784.0,2950074.0,3932573.0,4913000.0,5902927.0,6883823.0,7930087.0,8848685.0,9923975.0,10824791.0,11798672.0,12783701.0,13774164.0,14839628.0,15735335.0,16731168.0,17751080.0,18682928.0,19951237.0,20652922.0,21627455.0,22735445.0,23598057.0,24578951.0,25562473.0,26548175.0,27533694.0,28511151.0,29496226.0,30607741.0,31646515.0,32445248.0,33428545.0,34415604.0,35395148.0,36384949.0,37363457.0,38369548.0,39319547.0,40513759.0,41815942.0,42436706.0,43290877.0,44204875.0,45211781.0,46747493.0,47191321.0,48179196.0,49162794.0,50174618.0,51608724.0,52108718.0,53125395.0,54076881.0,55060079.0,56038565.0,57633904.0,58021281.0,58987772.0,59983865.0,61041445.0,61952514.0,62930383.0,63922441.0,64906465.0,65703756.0,66570141.0,67815063.0,68815192.0,69825007.0,70791555.0,72364589.0,72751894.0,74519754.0,74829596.0,75723054.0,76691694.0,77676546.0,78653647.0,80205594.0,80628110.0,81720454.0,82608949.0,83573242.0,84561580.0,85900011.0,86537626.0,87505834.0,88487096.0,89944146.0,90458841.0,91447388.0,92415098.0,93411222.0,95410770.0,95370355.0,96359436.0,97347265.0,98324102.0],"unit":"ns","throughput":[],"typical":{"estimate":599.6330817103926,"lower_bound":599.1727231596176,"upper_bound":600.1653849947771,"unit":"ns"},"mean":{"estimate":599.7904915278368,"lower_bound":599.3915973973922,"upper_bound":600.2261035400338,"unit":"ns"},"median":{"estimate":598.8462102261069,"lower_bound":598.8138702801461,"upper_bound":598.9057769270923,"unit":"ns"},"median_abs_dev":{"estimate":0.1381096351851237,"lower_bound":0.09947404456186724,"upper_bound":0.2985961395588469,"unit":"ns"},"slope":{"estimate":599.6330817103926,"lower_bound":599.1727231596176,"upper_bound":600.1653849947771,"unit":"ns"},"change":null}
+{"reason":"group-complete","group_name":"allow_revoke_ubench","benchmarks":["allow_revoke_ubench/nop","allow_revoke_ubench/allow_revoke"],"report_directory":"/mydata/omniglot-osdi25-ae/omniglot-lfi/target/criterion/reports/allow_revoke_ubench"}
+
+Finished benchmarks!
+Benchmark complete, saving checkpoint to ubench_allow_revoke_checkpoint.json
+==> Reusing "brotli_checked" benchmark checkpoint brotli_checked_checkpoint.json
+==> Reusing "brotli_unchecked" benchmark checkpoint brotli_unchecked_checkpoint.json
+==> Reusing "sodium_checked" benchmark checkpoint sodium_checked_checkpoint.json
+==> Reusing "sodium_unchecked" benchmark checkpoint sodium_unchecked_checkpoint.json
+==> Reusing "libpng_checked" benchmark checkpoint libpng_checked_checkpoint.json
+==> Reusing "libpng_unchecked" benchmark checkpoint libpng_unchecked_checkpoint.json
+==> Reusing "libpng_explicit_allow_revoke" benchmark checkpoint libpng_explicit_allow_revoke_checkpoint.json
+==> Reusing "libpng_auto_allow_revoke" benchmark checkpoint libpng_auto_allow_revoke_checkpoint.json
+
+
+========== RESULTS ==========
+
+libpng-explicit-allow-revoke/libpng_decode/og_lfi/big_building_001.0p.png=  1950455.805 ns
+validation/str/8224=    67741.203 ns
+upgrade/64=       19.110 ns
+libpng-explicit-allow-revoke/libpng_decode/unsafe/big_building_001.0p.png=  1807809.673 ns
+libpng-auto-allow-revoke/libpng_decode/og_lfi/big_building_001.0p.png=  1945078.747 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_001.0p.png=  1808952.380 ns
+allow_revoke_ubench/allow_revoke=      599.633 ns
+runtime_setup/unsafe=  1117074.372 ns
+brotli-checked/brotli_compress_decompress/omniglot-lfi/1024=  3007555.184 ns
+brotli-unchecked/brotli_compress_decompress/omniglot-lfi/1024=  3006460.734 ns
+libpng-auto-allow-revoke/libpng_decode/unsafe/big_building_001.0p.png=  1807982.939 ns
+ubench_invoke/unsafe/0=       13.741 ns
+runtime_setup/og_lfi=  4164112.154 ns
+ubench_invoke/og_lfi/0=      203.409 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_001.0p.png=  1938879.428 ns
+brotli-unchecked/brotli_compress_decompress/omniglot-mock/1024=  2932059.102 ns
+validation/u8/8224=        1.039 ns
+sodium-checked/libsodium_hash/unsafe/32768=    59258.678 ns
+sodium-unchecked/libsodium_hash/unsafe/32768=    59125.870 ns
+validation/str/64=      298.831 ns
+callback/1=      302.752 ns
+callback/8=      302.817 ns
+upgrade/1=       19.160 ns
+libpng-checked/libpng_decode/unsafe/big_building_001.0p.png=  1814666.831 ns
+upgrade/8=       19.111 ns
+brotli-checked/brotli_compress_decompress/omniglot-mock/1024=  2941267.981 ns
+libpng-checked/libpng_decode/og_lfi/big_building_001.0p.png=  1940860.675 ns
+brotli-checked/brotli_compress_decompress/unsafe/1024=  2939445.159 ns
+allow_revoke_ubench/nop=      203.040 ns
+brotli-unchecked/brotli_compress_decompress/unsafe/1024=  2931023.817 ns
+callback/64=      303.839 ns
+validation/u8/64=        1.039 ns
+sodium-checked/libsodium_hash/og_lfi/32768=    67089.160 ns
+sodium-unchecked/libsodium_hash/og_lfi/32768=    67115.965 ns
+
+
+========= TABLE 3: MICROBENCHMARKS ==========
+
+(a)            | Setup                               | Invoke                              |
+|              | PMP              | LFI              | PMP              | LFI              |
+|------------- +------------------+------------------+------------------+------------------|
+| Unsafe       | ???????????????? |   1117074.372 ns | ???????????????? |        13.741 ns |
+| Omniglot     | ???????????????? |   4164112.154 ns | ???????????????? |       203.409 ns |
+| Tock Upcall  | ---------------- | ---------------- | ???????????????? | ---------------- |
+
+(b)            | Upgrade                             | Callback                            |
+| allocs / CBs | PMP              | LFI              | PMP              | LFI              |
+|--------------+------------------+------------------+------------------+------------------|
+|            1 | ???????????????? |        19.160 ns | ???????????????? |       302.752 ns |
+|            8 | ???????????????? |        19.111 ns | ???????????????? |       302.817 ns |
+|           64 | ???????????????? |        19.110 ns | ???????????????? |       303.839 ns |
+
+| (c) Validate |           64B u8 |           8kB u8 |          64B str |          8kB str |
+|--------------+------------------+------------------+------------------+------------------|
+|          PMP | ???????????????? | ???????????????? | ???????????????? | ???????????????? |
+|          LFI |         1.039 ns |         1.039 ns |       298.831 ns |     67741.203 ns |
+
+
+========= TABLE 2: LIBRARY EVALUATIONS ==========
+
+| Library   | RT  |    unsafe        |          isolation only       |            Omniglot           |
+|-----------+-----+------------------+-------------------------------+-------------------------------|
+| Brotli    | LFI |   2931023.817 ns |   3006460.734 ns (+2.574%)    |   3007555.184 ns (+0.036%)    |
+| libsodium | LFI |     59125.870 ns |     67115.965 ns (+13.514%)   |     67089.160 ns (+-0.040%)   |
+| libpng    | LFI |   1808952.380 ns |   1938879.428 ns (+7.182%)    |   1940860.675 ns (+0.102%)    |

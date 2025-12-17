@@ -1,0 +1,352 @@
+========== Omniglot-LFI TOCS Evaluation Script ==========
+==> Reusing "ubench_invoke" benchmark checkpoint ubench_invoke_checkpoint.json
+==> Reusing "ubench_setup" benchmark checkpoint ubench_setup_checkpoint.json
+==> Reusing "ubench_validation" benchmark checkpoint ubench_validation_checkpoint.json
+==> Reusing "ubench_upgrade" benchmark checkpoint ubench_upgrade_checkpoint.json
+==> Reusing "ubench_callback" benchmark checkpoint ubench_callback_checkpoint.json
+==> Reusing "brotli_checked" benchmark checkpoint brotli_checked_checkpoint.json
+==> Reusing "brotli_unchecked" benchmark checkpoint brotli_unchecked_checkpoint.json
+==> Reusing "sodium_checked" benchmark checkpoint sodium_checked_checkpoint.json
+==> Reusing "sodium_unchecked" benchmark checkpoint sodium_unchecked_checkpoint.json
+==> Reusing "libpng_checked" benchmark checkpoint libpng_checked_checkpoint.json
+==> Reusing "libpng_unchecked" benchmark checkpoint libpng_unchecked_checkpoint.json
+
+
+========== RESULTS ==========
+
+libpng-unchecked/libpng_decode/unsafe/big_building_004.3p.png= 22617797.140 ns
+libpng-checked/libpng_decode/unsafe/big_building_005.5p.png= 35525517.000 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_006.4p.png= 47089769.990 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_010.0p.png=108787178.880 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_008.2p.png= 73161086.750 ns
+libpng-checked/libpng_decode/og_lfi/big_building_003.7p.png= 17532137.207 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_007.6p.png= 67024152.970 ns
+libpng-checked/libpng_decode/unsafe/big_building_004.0p.png= 19725537.267 ns
+libpng-checked/libpng_decode/unsafe/big_building_006.4p.png= 45768351.415 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_001.9p.png=  5655399.009 ns
+libpng-checked/libpng_decode/og_lfi/big_building_000.4p.png=   445409.795 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_001.6p.png=  3959908.944 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_008.8p.png= 84457828.890 ns
+libpng-checked/libpng_decode/unsafe/big_building_009.4p.png= 98356859.470 ns
+libpng-checked/libpng_decode/unsafe/big_building_009.1p.png= 89926044.050 ns
+validation/str/8224=    67357.859 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_003.1p.png= 12496022.025 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_009.7p.png=104658455.980 ns
+libpng-checked/libpng_decode/unsafe/big_building_000.1p.png=    11621.847 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_002.8p.png= 10436865.508 ns
+libpng-checked/libpng_decode/unsafe/big_building_002.5p.png=  8236387.821 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_004.0p.png= 19783421.117 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_001.6p.png=  4137817.773 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_003.7p.png= 17024033.137 ns
+upgrade/64=       20.024 ns
+libpng-checked/libpng_decode/og_lfi/big_building_005.8p.png= 40803570.955 ns
+libpng-checked/libpng_decode/unsafe/big_building_003.1p.png= 12480849.177 ns
+libpng-checked/libpng_decode/og_lfi/big_building_001.9p.png=  5647514.036 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_006.4p.png= 45810006.855 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_006.1p.png= 42048795.315 ns
+libpng-checked/libpng_decode/unsafe/big_building_005.8p.png= 39523330.350 ns
+libpng-checked/libpng_decode/unsafe/big_building_010.0p.png=108636434.470 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_007.9p.png= 68877443.390 ns
+libpng-checked/libpng_decode/unsafe/big_building_006.7p.png= 51822866.280 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_009.1p.png= 92607046.610 ns
+libpng-checked/libpng_decode/unsafe/big_building_000.4p.png=   413534.419 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_005.2p.png= 32552707.545 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_004.3p.png= 23268842.243 ns
+libpng-checked/libpng_decode/unsafe/big_building_002.2p.png=  7062604.336 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_001.0p.png=  1839329.528 ns
+libpng-checked/libpng_decode/unsafe/big_building_003.4p.png= 14542699.417 ns
+runtime_setup/unsafe=  1117855.050 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_001.3p.png=  2938388.250 ns
+libpng-checked/libpng_decode/og_lfi/big_building_002.8p.png= 10436207.568 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_003.4p.png= 14551187.055 ns
+libpng-checked/libpng_decode/unsafe/big_building_001.6p.png=  3976530.267 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_002.5p.png=  8540952.615 ns
+brotli-checked/brotli_compress_decompress/omniglot-lfi/1024=  3006213.081 ns
+libpng-checked/libpng_decode/unsafe/big_building_007.9p.png= 68717309.530 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_010.0p.png=111955005.190 ns
+brotli-unchecked/brotli_compress_decompress/omniglot-lfi/1024=  3005192.681 ns
+libpng-checked/libpng_decode/og_lfi/big_building_002.5p.png=  8542960.995 ns
+libpng-checked/libpng_decode/og_lfi/big_building_000.1p.png=    20553.376 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_004.0p.png= 20384824.437 ns
+libpng-checked/libpng_decode/og_lfi/big_building_001.6p.png=  4137772.938 ns
+ubench_invoke/unsafe/0=       13.741 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_005.5p.png= 36627735.695 ns
+runtime_setup/og_lfi=  4161144.922 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_009.7p.png=107543135.610 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_000.4p.png=   413809.201 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_006.7p.png= 51913039.660 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_002.5p.png=  8244694.027 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_009.4p.png=101273103.510 ns
+libpng-checked/libpng_decode/og_lfi/big_building_000.7p.png=  1116797.717 ns
+ubench_invoke/og_lfi/0=      205.058 ns
+libpng-checked/libpng_decode/og_lfi/big_building_004.9p.png= 29333049.725 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_005.5p.png= 35616095.305 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_006.1p.png= 43266245.755 ns
+libpng-checked/libpng_decode/unsafe/big_building_001.9p.png=  5440727.285 ns
+libpng-checked/libpng_decode/og_lfi/big_building_007.6p.png= 66839335.020 ns
+libpng-checked/libpng_decode/unsafe/big_building_004.3p.png= 22528036.173 ns
+libpng-checked/libpng_decode/og_lfi/big_building_004.3p.png= 23258902.933 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_001.0p.png=  1938642.330 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_005.2p.png= 31546392.175 ns
+brotli-unchecked/brotli_compress_decompress/omniglot-mock/1024=  2941415.148 ns
+libpng-checked/libpng_decode/og_lfi/big_building_009.7p.png=107519421.720 ns
+validation/u8/8224=        1.048 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_000.1p.png=    11519.230 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_002.8p.png= 10081692.052 ns
+libpng-checked/libpng_decode/unsafe/big_building_008.2p.png= 73007780.850 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_004.9p.png= 28388137.245 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_008.8p.png= 86930266.320 ns
+libpng-checked/libpng_decode/og_lfi/big_building_005.2p.png= 32438182.630 ns
+sodium-checked/libsodium_hash/unsafe/32768=    59191.117 ns
+libpng-checked/libpng_decode/unsafe/big_building_007.6p.png= 64994250.750 ns
+sodium-unchecked/libsodium_hash/unsafe/32768=    59181.615 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_003.7p.png= 17536411.657 ns
+validation/str/64=      303.027 ns
+libpng-checked/libpng_decode/og_lfi/big_building_007.9p.png= 71040647.880 ns
+libpng-checked/libpng_decode/og_lfi/big_building_009.4p.png=101582431.110 ns
+callback/1=      300.781 ns
+libpng-checked/libpng_decode/unsafe/big_building_007.0p.png= 55688767.170 ns
+callback/8=      301.264 ns
+libpng-checked/libpng_decode/og_lfi/big_building_001.3p.png=  2940963.156 ns
+libpng-checked/libpng_decode/og_lfi/big_building_010.0p.png=111831775.640 ns
+libpng-checked/libpng_decode/unsafe/big_building_003.7p.png= 17005918.957 ns
+upgrade/1=       20.021 ns
+libpng-checked/libpng_decode/unsafe/big_building_001.0p.png=  1836807.970 ns
+upgrade/8=       20.021 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_009.1p.png= 90003315.090 ns
+libpng-checked/libpng_decode/unsafe/big_building_000.7p.png=  1050505.338 ns
+libpng-checked/libpng_decode/unsafe/big_building_002.8p.png= 10043958.120 ns
+libpng-checked/libpng_decode/og_lfi/big_building_004.6p.png= 26292076.015 ns
+libpng-checked/libpng_decode/og_lfi/big_building_009.1p.png= 92696351.540 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_004.9p.png= 29330073.375 ns
+libpng-checked/libpng_decode/unsafe/big_building_006.1p.png= 42012363.815 ns
+libpng-checked/libpng_decode/og_lfi/big_building_002.2p.png=  7321098.653 ns
+libpng-checked/libpng_decode/og_lfi/big_building_006.1p.png= 43272390.355 ns
+brotli-checked/brotli_compress_decompress/omniglot-mock/1024=  3043721.514 ns
+libpng-checked/libpng_decode/unsafe/big_building_001.3p.png=  2809904.194 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_000.4p.png=   444541.679 ns
+libpng-checked/libpng_decode/og_lfi/big_building_001.0p.png=  1940167.136 ns
+libpng-checked/libpng_decode/og_lfi/big_building_006.7p.png= 53379409.450 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_008.5p.png= 79499885.670 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_003.4p.png= 15011360.983 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_004.6p.png= 25544329.885 ns
+libpng-checked/libpng_decode/unsafe/big_building_005.2p.png= 31473234.930 ns
+libpng-checked/libpng_decode/unsafe/big_building_007.3p.png= 60395591.330 ns
+brotli-checked/brotli_compress_decompress/unsafe/1024=  3041938.782 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_000.7p.png=  1055407.201 ns
+brotli-unchecked/brotli_compress_decompress/unsafe/1024=  2941124.205 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_007.0p.png= 57478324.140 ns
+libpng-checked/libpng_decode/og_lfi/big_building_007.3p.png= 62244495.780 ns
+libpng-checked/libpng_decode/unsafe/big_building_004.6p.png= 25461891.470 ns
+libpng-checked/libpng_decode/og_lfi/big_building_008.2p.png= 75316843.560 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_002.2p.png=  7068714.015 ns
+libpng-checked/libpng_decode/og_lfi/big_building_003.4p.png= 15049917.392 ns
+libpng-checked/libpng_decode/og_lfi/big_building_003.1p.png= 12886912.748 ns
+libpng-checked/libpng_decode/unsafe/big_building_009.7p.png=104501953.480 ns
+callback/64=      301.164 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_001.9p.png=  5442154.902 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_008.5p.png= 81671149.130 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_008.2p.png= 75475319.730 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_003.1p.png= 12925027.273 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_007.9p.png= 70814038.240 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_004.6p.png= 26337334.630 ns
+libpng-checked/libpng_decode/og_lfi/big_building_008.8p.png= 86951910.520 ns
+validation/u8/64=        1.090 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_005.8p.png= 39558770.260 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_001.3p.png=  2797148.121 ns
+libpng-checked/libpng_decode/unsafe/big_building_008.5p.png= 79346667.650 ns
+libpng-checked/libpng_decode/og_lfi/big_building_004.0p.png= 20370472.853 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_005.8p.png= 40735640.415 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_007.3p.png= 62194639.980 ns
+libpng-checked/libpng_decode/og_lfi/big_building_007.0p.png= 57481425.630 ns
+libpng-checked/libpng_decode/og_lfi/big_building_006.4p.png= 47267092.245 ns
+sodium-checked/libsodium_hash/og_lfi/32768=    67146.683 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_007.3p.png= 60498027.320 ns
+libpng-checked/libpng_decode/unsafe/big_building_004.9p.png= 28353255.500 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_006.7p.png= 53293312.200 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_007.6p.png= 65065831.070 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_000.7p.png=  1115479.829 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_007.0p.png= 55750155.060 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_000.1p.png=    20089.815 ns
+libpng-checked/libpng_decode/og_lfi/big_building_005.5p.png= 36653412.090 ns
+sodium-unchecked/libsodium_hash/og_lfi/32768=    67081.864 ns
+libpng-unchecked/libpng_decode/og_lfi/big_building_002.2p.png=  7322490.683 ns
+libpng-checked/libpng_decode/og_lfi/big_building_008.5p.png= 82002648.800 ns
+libpng-checked/libpng_decode/unsafe/big_building_008.8p.png= 84284952.850 ns
+libpng-unchecked/libpng_decode/unsafe/big_building_009.4p.png= 98529813.780 ns
+
+
+========= TABLE 3: MICROBENCHMARKS ==========
+
+(a)            | Setup                               | Invoke                              |
+|              | PMP              | LFI              | PMP              | LFI              |
+|------------- +------------------+------------------+------------------+------------------|
+| Unsafe       | ???????????????? |   1117855.050 ns | ???????????????? |        13.741 ns |
+| Omniglot     | ???????????????? |   4161144.922 ns | ???????????????? |       205.058 ns |
+| Tock Upcall  | ---------------- | ---------------- | ???????????????? | ---------------- |
+
+(b)            | Upgrade                             | Callback                            |
+| allocs / CBs | PMP              | LFI              | PMP              | LFI              |
+|--------------+------------------+------------------+------------------+------------------|
+|            1 | ???????????????? |        20.021 ns | ???????????????? |       300.781 ns |
+|            8 | ???????????????? |        20.021 ns | ???????????????? |       301.264 ns |
+|           64 | ???????????????? |        20.024 ns | ???????????????? |       301.164 ns |
+
+| (c) Validate |           64B u8 |           8kB u8 |          64B str |          8kB str |
+|--------------+------------------+------------------+------------------+------------------|
+|          PMP | ???????????????? | ???????????????? | ???????????????? | ???????????????? |
+|          LFI |         1.090 ns |         1.048 ns |       303.027 ns |     67357.859 ns |
+
+
+========= TABLE 2: LIBRARY EVALUATIONS ==========
+
+| Library   | RT  |    unsafe        |          isolation only       |            Omniglot           |
+|-----------+-----+------------------+-------------------------------+-------------------------------|
+| Brotli    | LFI |   2941124.205 ns |   3005192.681 ns (+2.178%)    |   3006213.081 ns (+0.034%)    |
+| libsodium | LFI |     59181.615 ns |     67081.864 ns (+13.349%)   |     67146.683 ns (+0.097%)    |
+| libpng    | LFI |   1839329.528 ns |   1938642.330 ns (+5.399%)    |   1940167.136 ns (+0.079%)    |
+
+
+========= FIGURE 5: libpng Sandcrust vs. Omniglot ==========
+
+these 2 derivations will be built:
+  /nix/store/8y4vn0r0jwxxh6hclxq6nra10bxrjab1-builder.pl.drv
+  /nix/store/6s43c33n5rinmzglz3rb48gxg01im987-python3-3.13.9-env.drv
+these 59 paths will be fetched (61.5 MiB download, 363.6 MiB unpacked):
+  /nix/store/pl2g977j2scjmj37iwpjil8lyjskmbny-bin
+  /nix/store/k8aawsx66xjgd8qhdr24dqaq9s0w8av5-blas-3
+  /nix/store/467vmcdyvj23l7dsjixymf8x9z6yl983-blas-3-dev
+  /nix/store/iblpwrd5gdnpxdqhsc5dyyqqhjcziihh-dav1d-1.5.2
+  /nix/store/n6wcsaw689sdfpn425g194v5nkss2xlb-dejavu-fonts-minimal-2.37
+  /nix/store/3lq26d4nmwgh8cy0h55spgb3bxc7l504-die-hook
+  /nix/store/mynw03snjj3k1wlsz5v94a10x7l2w5kp-fontconfig-2.17.1
+  /nix/store/5l5wsn4qxkw90h6sxxz43gbnar7w5x8s-fontconfig-2.17.1-lib
+  /nix/store/b6rhgkvrwzq0bzfpaw79b60i1bfbhk3w-freetype-2.13.3
+  /nix/store/hsf2g79801wp025f38r6abz3nkykzw3p-fribidi-1.0.16
+  /nix/store/cfnas28yx8ni9izjmk3f9hgwzin798nl-gdk-pixbuf-2.44.4
+  /nix/store/08ypwxzbpfxrl24njqr7j3m4ws89j9b6-gfortran-14.3.0-lib
+  /nix/store/snwma73ddap0b14irc9wp62fhdwkp12i-gfortran-14.3.0-libgcc
+  /nix/store/jd7libxip067wb1xx8vks9hvgscwnw5p-giflib-5.2.2
+  /nix/store/5qdsnc26nv61j5rrw492f19xav2rz45v-glib-2.86.1
+  /nix/store/sdbzh44az4p0gglfvlxnb6v9dbzz9rg2-graphite2-1.3.14
+  /nix/store/8mk1lafnnrx0a6lvjh69afm8w3i4pvqx-harfbuzz-12.1.0
+  /nix/store/0xg1l29m3w4p3i7pkw376d68ww61gzw7-lapack-3
+  /nix/store/z4bi9nbgp1pgna3iddx8ivz6zyphxh7x-lapack-3-dev
+  /nix/store/ligc3sv7wkfc81fjpbpm9ypcznkx7j56-lcms2-2.17
+  /nix/store/j533zck85w12295i2ljji00wzrvhj7gs-lerc-4.0.0
+  /nix/store/vbvbbi2r5s4wsxsmj2fyflrldzb52dmb-libaom-3.12.1
+  /nix/store/cdppaa2izwlwcddcghshd58n0armz0cd-libavif-1.3.0
+  /nix/store/3v1kbi48nc1hxq8b27sgcsaa094lalz5-libdeflate-1.25
+  /nix/store/lhp08d271fsyhsib3wncy4w5nc2flj88-libimagequant-4.4.0
+  /nix/store/li2pfjskp7ijvs29bx2077b6ggq42v0k-libjpeg-turbo-3.1.2
+  /nix/store/s8md611ry6w14m4awmgivld52ym8s3b2-libpng-apng-1.6.50
+  /nix/store/isd5fqz1qflqv3339zfaqq46q14bqf0a-libraqm-0.10.3
+  /nix/store/xnaf2w53yacjg7h3127ks7gf61pcs3n8-libselinux-3.8.1
+  /nix/store/17djp5v30333dlf5g70i4hs1mb4qlxbd-libtiff-4.7.1
+  /nix/store/s34rfsb54v46a70n7g9kcx65nhdpgvzf-libvmaf-3.0.0
+  /nix/store/bcv98jffnvqxvyncf1bayz50r9wj7g3q-libwebp-1.6.0
+  /nix/store/jpq2pxbwfin6129vjraf6miv1la17ny9-libwebp-1.6.0
+  /nix/store/ja09m2gfni7pqk4bsrhjb8y9cq74rspp-libx11-1.8.12
+  /nix/store/lcss48c1x1pvn1irp2y3fsvc4b5mbqxv-libxau-1.0.12
+  /nix/store/9babi8y8p9crps6l8sz5gr5xm5fljw1h-libxcb-1.17.0
+  /nix/store/z34g38hzz56f3c0pjxs2m90s51ga1y1x-libxdmcp-1.1.5
+  /nix/store/r2av6qwa7rqrwicbva1nrhmxlks8sphg-libxft-2.3.9
+  /nix/store/dgjd3hf8ny62vbjg10w64x4jwm7cv81k-libxrender-0.9.12
+  /nix/store/y2i3bvh2vjzjacfzp47blbdpai3c6qxj-libyuv-1908
+  /nix/store/wxjcx5fis4bygw7bywg2jkjs4cliw3jd-make-binary-wrapper-hook
+  /nix/store/sz0cqgqwwf2pf6471wqbz4qbivzfpb3b-openblas-0.3.30
+  /nix/store/2cvndn3mmkpp148rd9njqkj21k9w0vyz-openjpeg-2.5.4
+  /nix/store/nrjpmxm9f09yjk367wv32pj3bc5fsh14-python3.13-contourpy-1.3.3
+  /nix/store/ak920s7zzyfbcvavc6b32yi072xl9h4x-python3.13-cycler-0.12.1
+  /nix/store/x22pw7n7f28lh33zhhx6s3i2pcgn0qag-python3.13-fonttools-4.60.1
+  /nix/store/m75nd2rwm2y1z2v5hd02jqjjjpyivpcq-python3.13-kiwisolver-1.4.8
+  /nix/store/f9fm7713mdbx9b62sr53bvn8hpb9r29b-python3.13-matplotlib-3.10.5
+  /nix/store/qbljpi28kpxkjaibg0avqqn6adqcg744-python3.13-numpy-2.3.4
+  /nix/store/084z0az33fpli83kchv6n42pa064708r-python3.13-packaging-25.0
+  /nix/store/7f7v05gnv35j7sai0lx8db7s2ixq30r1-python3.13-pillow-12.0.0
+  /nix/store/lw21fvwpaawynv7am9xqsar6lhrxc6a7-python3.13-pyparsing-3.2.3
+  /nix/store/nrqf7kmlhisk754q80bkcrgzga54bvz9-python3.13-python-dateutil-2.9.0.post0
+  /nix/store/89kp5ww3adl1fgcm41k357ky6vnqsy92-python3.13-six-1.17.0
+  /nix/store/457i1fimc4smh2v8ax2qpy6r0yprnbay-python3.13-tkinter-3.13.9
+  /nix/store/khxsq7skhidbq7dbxgdazcnn80dyf50n-qhull-2020.2
+  /nix/store/biz055ybc5x1vxar1dqlrjsw7w9axgc2-tcl-8.6.16
+  /nix/store/akcsm02zb2bfzn73jd3g09mga13c2yg2-tk-8.6.16
+  /nix/store/h9grlk1b07l80k6rnmyliawg25bdpsv5-wayland-1.24.0
+copying path '/nix/store/pl2g977j2scjmj37iwpjil8lyjskmbny-bin' from 'https://cache.nixos.org'...
+copying path '/nix/store/3lq26d4nmwgh8cy0h55spgb3bxc7l504-die-hook' from 'https://cache.nixos.org'...
+copying path '/nix/store/ak920s7zzyfbcvavc6b32yi072xl9h4x-python3.13-cycler-0.12.1' from 'https://cache.nixos.org'...
+copying path '/nix/store/x22pw7n7f28lh33zhhx6s3i2pcgn0qag-python3.13-fonttools-4.60.1' from 'https://cache.nixos.org'...
+copying path '/nix/store/m75nd2rwm2y1z2v5hd02jqjjjpyivpcq-python3.13-kiwisolver-1.4.8' from 'https://cache.nixos.org'...
+copying path '/nix/store/084z0az33fpli83kchv6n42pa064708r-python3.13-packaging-25.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/89kp5ww3adl1fgcm41k357ky6vnqsy92-python3.13-six-1.17.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/lw21fvwpaawynv7am9xqsar6lhrxc6a7-python3.13-pyparsing-3.2.3' from 'https://cache.nixos.org'...
+copying path '/nix/store/iblpwrd5gdnpxdqhsc5dyyqqhjcziihh-dav1d-1.5.2' from 'https://cache.nixos.org'...
+copying path '/nix/store/n6wcsaw689sdfpn425g194v5nkss2xlb-dejavu-fonts-minimal-2.37' from 'https://cache.nixos.org'...
+copying path '/nix/store/hsf2g79801wp025f38r6abz3nkykzw3p-fribidi-1.0.16' from 'https://cache.nixos.org'...
+copying path '/nix/store/snwma73ddap0b14irc9wp62fhdwkp12i-gfortran-14.3.0-libgcc' from 'https://cache.nixos.org'...
+copying path '/nix/store/jd7libxip067wb1xx8vks9hvgscwnw5p-giflib-5.2.2' from 'https://cache.nixos.org'...
+copying path '/nix/store/lhp08d271fsyhsib3wncy4w5nc2flj88-libimagequant-4.4.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/ligc3sv7wkfc81fjpbpm9ypcznkx7j56-lcms2-2.17' from 'https://cache.nixos.org'...
+copying path '/nix/store/li2pfjskp7ijvs29bx2077b6ggq42v0k-libjpeg-turbo-3.1.2' from 'https://cache.nixos.org'...
+building '/nix/store/8y4vn0r0jwxxh6hclxq6nra10bxrjab1-builder.pl.drv'...
+copying path '/nix/store/sdbzh44az4p0gglfvlxnb6v9dbzz9rg2-graphite2-1.3.14' from 'https://cache.nixos.org'...
+copying path '/nix/store/j533zck85w12295i2ljji00wzrvhj7gs-lerc-4.0.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/3v1kbi48nc1hxq8b27sgcsaa094lalz5-libdeflate-1.25' from 'https://cache.nixos.org'...
+copying path '/nix/store/s8md611ry6w14m4awmgivld52ym8s3b2-libpng-apng-1.6.50' from 'https://cache.nixos.org'...
+copying path '/nix/store/xnaf2w53yacjg7h3127ks7gf61pcs3n8-libselinux-3.8.1' from 'https://cache.nixos.org'...
+copying path '/nix/store/s34rfsb54v46a70n7g9kcx65nhdpgvzf-libvmaf-3.0.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/lcss48c1x1pvn1irp2y3fsvc4b5mbqxv-libxau-1.0.12' from 'https://cache.nixos.org'...
+copying path '/nix/store/z34g38hzz56f3c0pjxs2m90s51ga1y1x-libxdmcp-1.1.5' from 'https://cache.nixos.org'...
+copying path '/nix/store/wxjcx5fis4bygw7bywg2jkjs4cliw3jd-make-binary-wrapper-hook' from 'https://cache.nixos.org'...
+copying path '/nix/store/08ypwxzbpfxrl24njqr7j3m4ws89j9b6-gfortran-14.3.0-lib' from 'https://cache.nixos.org'...
+copying path '/nix/store/khxsq7skhidbq7dbxgdazcnn80dyf50n-qhull-2020.2' from 'https://cache.nixos.org'...
+copying path '/nix/store/biz055ybc5x1vxar1dqlrjsw7w9axgc2-tcl-8.6.16' from 'https://cache.nixos.org'...
+copying path '/nix/store/nrqf7kmlhisk754q80bkcrgzga54bvz9-python3.13-python-dateutil-2.9.0.post0' from 'https://cache.nixos.org'...
+copying path '/nix/store/9babi8y8p9crps6l8sz5gr5xm5fljw1h-libxcb-1.17.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/h9grlk1b07l80k6rnmyliawg25bdpsv5-wayland-1.24.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/b6rhgkvrwzq0bzfpaw79b60i1bfbhk3w-freetype-2.13.3' from 'https://cache.nixos.org'...
+copying path '/nix/store/5qdsnc26nv61j5rrw492f19xav2rz45v-glib-2.86.1' from 'https://cache.nixos.org'...
+copying path '/nix/store/mynw03snjj3k1wlsz5v94a10x7l2w5kp-fontconfig-2.17.1' from 'https://cache.nixos.org'...
+copying path '/nix/store/jpq2pxbwfin6129vjraf6miv1la17ny9-libwebp-1.6.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/y2i3bvh2vjzjacfzp47blbdpai3c6qxj-libyuv-1908' from 'https://cache.nixos.org'...
+Running phase: patchPhase
+copying path '/nix/store/vbvbbi2r5s4wsxsmj2fyflrldzb52dmb-libaom-3.12.1' from 'https://cache.nixos.org'...
+Running phase: updateAutotoolsGnuConfigScriptsPhase
+Running phase: configurePhase
+copying path '/nix/store/ja09m2gfni7pqk4bsrhjb8y9cq74rspp-libx11-1.8.12' from 'https://cache.nixos.org'...
+no configure script, doing nothing
+Running phase: buildPhase
+Running phase: checkPhase
+copying path '/nix/store/5l5wsn4qxkw90h6sxxz43gbnar7w5x8s-fontconfig-2.17.1-lib' from 'https://cache.nixos.org'...
+copying path '/nix/store/17djp5v30333dlf5g70i4hs1mb4qlxbd-libtiff-4.7.1' from 'https://cache.nixos.org'...
+Running phase: installPhase
+no Makefile or custom installPhase, doing nothing
+Running phase: fixupPhase
+copying path '/nix/store/2cvndn3mmkpp148rd9njqkj21k9w0vyz-openjpeg-2.5.4' from 'https://cache.nixos.org'...
+copying path '/nix/store/bcv98jffnvqxvyncf1bayz50r9wj7g3q-libwebp-1.6.0' from 'https://cache.nixos.org'...
+shrinking RPATHs of ELF executables and libraries in /nix/store/4z0grds97rmripxps6b0kby1fr3g35cp-builder.pl
+checking for references to /build/ in /nix/store/4z0grds97rmripxps6b0kby1fr3g35cp-builder.pl...
+copying path '/nix/store/dgjd3hf8ny62vbjg10w64x4jwm7cv81k-libxrender-0.9.12' from 'https://cache.nixos.org'...
+patching script interpreter paths in /nix/store/4z0grds97rmripxps6b0kby1fr3g35cp-builder.pl
+copying path '/nix/store/r2av6qwa7rqrwicbva1nrhmxlks8sphg-libxft-2.3.9' from 'https://cache.nixos.org'...
+copying path '/nix/store/akcsm02zb2bfzn73jd3g09mga13c2yg2-tk-8.6.16' from 'https://cache.nixos.org'...
+copying path '/nix/store/sz0cqgqwwf2pf6471wqbz4qbivzfpb3b-openblas-0.3.30' from 'https://cache.nixos.org'...
+copying path '/nix/store/457i1fimc4smh2v8ax2qpy6r0yprnbay-python3.13-tkinter-3.13.9' from 'https://cache.nixos.org'...
+copying path '/nix/store/cfnas28yx8ni9izjmk3f9hgwzin798nl-gdk-pixbuf-2.44.4' from 'https://cache.nixos.org'...
+copying path '/nix/store/8mk1lafnnrx0a6lvjh69afm8w3i4pvqx-harfbuzz-12.1.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/cdppaa2izwlwcddcghshd58n0armz0cd-libavif-1.3.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/isd5fqz1qflqv3339zfaqq46q14bqf0a-libraqm-0.10.3' from 'https://cache.nixos.org'...
+copying path '/nix/store/7f7v05gnv35j7sai0lx8db7s2ixq30r1-python3.13-pillow-12.0.0' from 'https://cache.nixos.org'...
+copying path '/nix/store/k8aawsx66xjgd8qhdr24dqaq9s0w8av5-blas-3' from 'https://cache.nixos.org'...
+copying path '/nix/store/0xg1l29m3w4p3i7pkw376d68ww61gzw7-lapack-3' from 'https://cache.nixos.org'...
+copying path '/nix/store/z4bi9nbgp1pgna3iddx8ivz6zyphxh7x-lapack-3-dev' from 'https://cache.nixos.org'...
+copying path '/nix/store/467vmcdyvj23l7dsjixymf8x9z6yl983-blas-3-dev' from 'https://cache.nixos.org'...
+copying path '/nix/store/qbljpi28kpxkjaibg0avqqn6adqcg744-python3.13-numpy-2.3.4' from 'https://cache.nixos.org'...
+copying path '/nix/store/nrjpmxm9f09yjk367wv32pj3bc5fsh14-python3.13-contourpy-1.3.3' from 'https://cache.nixos.org'...
+copying path '/nix/store/f9fm7713mdbx9b62sr53bvn8hpb9r29b-python3.13-matplotlib-3.10.5' from 'https://cache.nixos.org'...
+building '/nix/store/6s43c33n5rinmzglz3rb48gxg01im987-python3-3.13.9-env.drv'...
+created 267 symlinks in user environment
+Reading data from file libpng_checked_checkpoint.json
+Parsing data...
+Plotting...
+Writing output to libpng_omniglot_sandcrust_comparison.pdf

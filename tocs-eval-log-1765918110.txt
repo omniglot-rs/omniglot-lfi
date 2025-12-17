@@ -1,0 +1,69 @@
+========== Omniglot-LFI TOCS Evaluation Script ==========
+==> Reusing "ubench_invoke" benchmark checkpoint ubench_invoke_checkpoint.json
+==> Reusing "ubench_setup" benchmark checkpoint ubench_setup_checkpoint.json
+==> Reusing "ubench_validation" benchmark checkpoint ubench_validation_checkpoint.json
+==> Reusing "ubench_upgrade" benchmark checkpoint ubench_upgrade_checkpoint.json
+==> Reusing "ubench_callback" benchmark checkpoint ubench_callback_checkpoint.json
+==> Reusing "brotli_checked" benchmark checkpoint brotli_checked_checkpoint.json
+==> Reusing "brotli_unchecked" benchmark checkpoint brotli_unchecked_checkpoint.json
+==> Reusing "sodium_checked" benchmark checkpoint sodium_checked_checkpoint.json
+==> Reusing "sodium_unchecked" benchmark checkpoint sodium_unchecked_checkpoint.json
+==> Reusing "libpng_checked" benchmark checkpoint libpng_checked_checkpoint.json
+==> Reusing "libpng_unchecked" benchmark checkpoint libpng_unchecked_checkpoint.json
+==> Reusing "libpng_explicit_allow_revoke" benchmark checkpoint libpng_explicit_allow_revoke_checkpoint.json
+==> Reusing "libpng_auto_allow_revoke" benchmark checkpoint libpng_auto_allow_revoke_checkpoint.json
+
+
+========== RESULTS ==========
+
+validation/str/8224=    67741.203 ns
+upgrade/64=       19.110 ns
+runtime_setup/unsafe=  1117074.372 ns
+brotli-checked/brotli_compress_decompress/omniglot-lfi/1024=  3007555.184 ns
+brotli-unchecked/brotli_compress_decompress/omniglot-lfi/1024=  3006460.734 ns
+ubench_invoke/unsafe/0=       13.741 ns
+runtime_setup/og_lfi=  4164112.154 ns
+ubench_invoke/og_lfi/0=      203.409 ns
+brotli-unchecked/brotli_compress_decompress/omniglot-mock/1024=  2932059.102 ns
+validation/u8/8224=        1.039 ns
+sodium-checked/libsodium_hash/unsafe/32768=    59258.678 ns
+sodium-unchecked/libsodium_hash/unsafe/32768=    59125.870 ns
+validation/str/64=      298.831 ns
+callback/1=      302.752 ns
+callback/8=      302.817 ns
+upgrade/1=       19.160 ns
+upgrade/8=       19.111 ns
+brotli-checked/brotli_compress_decompress/omniglot-mock/1024=  2941267.981 ns
+brotli-checked/brotli_compress_decompress/unsafe/1024=  2939445.159 ns
+brotli-unchecked/brotli_compress_decompress/unsafe/1024=  2931023.817 ns
+callback/64=      303.839 ns
+validation/u8/64=        1.039 ns
+sodium-checked/libsodium_hash/og_lfi/32768=    67089.160 ns
+sodium-unchecked/libsodium_hash/og_lfi/32768=    67115.965 ns
+
+
+========= TABLE 3: MICROBENCHMARKS ==========
+
+(a)            | Setup                               | Invoke                              |
+|              | PMP              | LFI              | PMP              | LFI              |
+|------------- +------------------+------------------+------------------+------------------|
+| Unsafe       | ???????????????? |   1117074.372 ns | ???????????????? |        13.741 ns |
+| Omniglot     | ???????????????? |   4164112.154 ns | ???????????????? |       203.409 ns |
+| Tock Upcall  | ---------------- | ---------------- | ???????????????? | ---------------- |
+
+(b)            | Upgrade                             | Callback                            |
+| allocs / CBs | PMP              | LFI              | PMP              | LFI              |
+|--------------+------------------+------------------+------------------+------------------|
+|            1 | ???????????????? |        19.160 ns | ???????????????? |       302.752 ns |
+|            8 | ???????????????? |        19.111 ns | ???????????????? |       302.817 ns |
+|           64 | ???????????????? |        19.110 ns | ???????????????? |       303.839 ns |
+
+| (c) Validate |           64B u8 |           8kB u8 |          64B str |          8kB str |
+|--------------+------------------+------------------+------------------+------------------|
+|          PMP | ???????????????? | ???????????????? | ???????????????? | ???????????????? |
+|          LFI |         1.039 ns |         1.039 ns |       298.831 ns |     67741.203 ns |
+
+
+========= TABLE 2: LIBRARY EVALUATIONS ==========
+
+./tocs-eval.sh: line 144: BENCH_RESULTS["libpng-unchecked/libpng_decode/unsafe/big_building_001.0p.png"]: unbound variable

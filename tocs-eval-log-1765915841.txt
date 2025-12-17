@@ -1,0 +1,3 @@
+========== Omniglot-LFI TOCS Evaluation Script ==========
+==> Running "ubench_invoke" benchmark, saving results to ubench_invoke_checkpoint.json
+./tocs-eval.sh: line 27: cargo: command not found
