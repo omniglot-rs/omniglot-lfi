@@ -1,0 +1,32 @@
+========== Omniglot-LFI TOCS LLHTTP Parallelism Evaluation Script ==========
+==> Reusing "llhttp_parallelism" benchmark checkpoint llhttp_parallelism_checkpoint.json
+
+
+========== RESULTS ==========
+
+llhttp_parse/llhttp_parse_65536req_threads/14= 12070692.922 ns
+llhttp_parse/llhttp_parse_65536req_threads/15= 11196769.334 ns
+llhttp_parse/llhttp_parse_65536req_threads/16= 10519809.006 ns
+llhttp_parse/llhttp_parse_65536req_threads/10= 17373611.133 ns
+llhttp_parse/llhttp_parse_65536req_threads/11= 15969226.760 ns
+llhttp_parse/llhttp_parse_65536req_threads/12= 14324162.855 ns
+llhttp_parse/llhttp_parse_65536req_threads/13= 13126441.818 ns
+llhttp_parse/llhttp_parse_65536req_threads/9= 19188392.250 ns
+llhttp_parse/llhttp_parse_65536req_threads/8= 20935622.707 ns
+llhttp_parse/llhttp_parse_65536req_threads/5= 35276801.275 ns
+llhttp_parse/llhttp_parse_65536req_threads/4= 41782627.405 ns
+llhttp_parse/llhttp_parse_65536req_threads/7= 23995392.027 ns
+llhttp_parse/llhttp_parse_65536req_threads/6= 28525488.320 ns
+llhttp_parse/llhttp_parse_65536req_threads/1=165996257.150 ns
+llhttp_parse/llhttp_parse_65536req_threads/3= 58785960.450 ns
+llhttp_parse/llhttp_parse_65536req_threads/2= 83596018.360 ns
+
+
+========= FIGURE ???: LLHTTP parallelism ==========
+
+/mydata/omniglot-osdi25-ae/omniglot-lfi/./generate-llhttp-parallelism-plot.py:57: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend(fontsize="small")
+Reading data from file llhttp_parallelism_checkpoint.json
+Parsing data...
+Plotting...
+Writing output to llhttp_parallelism_bench.pdf

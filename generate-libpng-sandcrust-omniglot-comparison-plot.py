@@ -19,40 +19,44 @@ from types import SimpleNamespace
 #    'pgf.rcfonts': False,
 #})
 
-def plot_benchmark_means(benchmark_name, json_data):
+def plot_benchmark_means(benchmark_name, lfi_json_data, mpk_json_data):
     benchmarks = {}
 
     print("Parsing data...")
-    for bmark_out in json_data:
-        if bmark_out["reason"] != "benchmark-complete":
-            continue
+    for benchmark_series_name, benchmark_series in [("lfi", lfi_json_data), ("mpk", mpk_json_data)]:
+        for bmark_out in benchmark_series:
+            if bmark_out["reason"] != "benchmark-complete":
+                continue
 
-        benchmark_id_matches = re.search(r"(.*)/(.*)/(.*)", bmark_out["id"])
-        benchmark_series = benchmark_id_matches.group(2)
+            benchmark_id_matches = re.search(r"(.*)/(.*)/(.*)", bmark_out["id"])
+            benchmark_series = benchmark_series_name + "_" + benchmark_id_matches.group(2)
 
-        if benchmark_series not in benchmarks:
-            if benchmark_series == "unsafe":
-                label = "Unsafe FFI"
-            elif benchmark_series == "og_lfi":
-                label = "OG\\textsubscript{LFI}"
-            elif benchmark_series == "sandcrust":
-                label = "Sandcrust"
-            else:
-                raise ValueError(f"Unknown benchmark series: {benchmark_series}")
+            if benchmark_series not in benchmarks:
+                if benchmark_series == "lfi_unsafe" or benchmark_series == "mpk_unsafe":
+                    label = f"Unsafe FFI ({benchmark_series_name.upper()})"
+                elif benchmark_series == "lfi_og_lfi":
+                    label = "OG\\textsubscript{LFI}"
+                elif benchmark_series == "mpk_og_mpk":
+                    label = "OG\\textsubscript{MPK}"
+                elif benchmark_series == "mpk_sandcrust":
+                    label = "Sandcrust"
+                else:
+                    raise ValueError(f"Unknown benchmark series: {benchmark_series}")
 
-            benchmarks[benchmark_series] = SimpleNamespace(
-                label=label,
-                mean_times=[],
-                throughputs=[],
-            )
+                print(f"Found benchmark series {benchmark_series}, label {label}")
+                benchmarks[benchmark_series] = SimpleNamespace(
+                    label=label,
+                    mean_times=[],
+                    throughputs=[],
+                )
 
-        benchmark = benchmarks[benchmark_series]
+            benchmark = benchmarks[benchmark_series]
 
-        try:
-            benchmark.mean_times.append(bmark_out["mean"]["estimate"] / 1e6)
-            benchmark.throughputs.append(bmark_out["throughput"][0]["per_iteration"] / 1e6)
-        except KeyError:
-            print(f"Skipping invalid JSON object: {bmark_out}")
+            try:
+                benchmark.mean_times.append(bmark_out["mean"]["estimate"] / 1e6)
+                benchmark.throughputs.append(bmark_out["throughput"][0]["per_iteration"] / 1e6)
+            except KeyError:
+                print(f"Skipping invalid JSON object: {bmark_out}")
 
     print("Plotting...")
     plt.figure(figsize=(3.5, 2))
@@ -84,13 +88,22 @@ if len(sys.argv) != 3:
     sys.exit(1)
 
 try:
-    data = []
-    print(f"Reading data from file {sys.argv[2]}")
+    print(f"Reading LFI data from file {sys.argv[2]}")
+    lfi_data = []
     with open(sys.argv[2], 'r') as f:
         for line in f:
             if line.strip() != "":
-                data.append(json.loads(line))
-    plot_benchmark_means(sys.argv[1], data)
+                lfi_data.append(json.loads(line))
+
+    mpk_file = "mpk_libpng_checked_1765902617.json"
+    print(f"Reading MPK data from file {mpk_file}")
+    mpk_data = []
+    with open(mpk_file, 'r') as f:
+        for line in f:
+            if line.strip() != "":
+                mpk_data.append(json.loads(line))
+
+    plot_benchmark_means(sys.argv[1], lfi_data, mpk_data)
 
 except FileNotFoundError:
     print(f"Error: '{sys.argv[2]}' not found. Please provide a valid file path.")

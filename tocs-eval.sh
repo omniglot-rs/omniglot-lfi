@@ -63,8 +63,12 @@ run_benchmark "libpng_unchecked" "libpng_decode_comparison" "libpng-unchecked/" 
         "--features disable_upgrade_checks,disable_validation_checks,bench_table_only" "1"
 run_benchmark "libpng_explicit_allow_revoke" "libpng_decode_comparison" "libpng-explicit-allow-revoke/" \
         "--features explicit_allow_revoke,bench_table_only" "1"
+run_benchmark "libpng_explicit_allow_revoke_unchecked" "libpng_decode_comparison" "libpng-explicit-allow-revoke-unchecked/" \
+        "--features explicit_allow_revoke,disable_upgrade_checks,disable_validation_checks,bench_table_only" "1"
 run_benchmark "libpng_auto_allow_revoke" "libpng_decode_comparison" "libpng-auto-allow-revoke/" \
         "--features auto_allow_revoke,bench_table_only" "1"
+run_benchmark "libpng_auto_allow_revoke_unchecked" "libpng_decode_comparison" "libpng-auto-allow-revoke-unchecked/" \
+        "--features auto_allow_revoke,disable_upgrade_checks,disable_validation_checks,bench_table_only" "1"
 
 # Full sweep over libpng images, takes a long time:
 run_benchmark "libpng_checked_full" "libpng_decode_comparison" "libpng-checked/" "" "1"
@@ -154,12 +158,38 @@ LIBPNG_OMNIGLOT_OVERHEAD="$(\
 		"${BENCH_RESULTS_EST["libpng-checked/libpng_decode/og_lfi/big_building_001.0p.png"]}" \
 		"${BENCH_RESULTS_EST["libpng-unchecked/libpng_decode/og_lfi/big_building_001.0p.png"]}")"
 
+LIBPNG_AUTO_UNSAFE="${BENCH_RESULTS["libpng-auto-allow-revoke-unchecked/libpng_decode/unsafe/big_building_001.0p.png"]}"
+LIBPNG_AUTO_ISOLATION="${BENCH_RESULTS["libpng-auto-allow-revoke-unchecked/libpng_decode/og_lfi/big_building_001.0p.png"]}"
+LIBPNG_AUTO_OMNIGLOT="${BENCH_RESULTS["libpng-auto-allow-revoke/libpng_decode/og_lfi/big_building_001.0p.png"]}"
+LIBPNG_AUTO_ISOLATION_OVERHEAD="$(\
+	compute_overhead \
+		"${BENCH_RESULTS_EST["libpng-auto-allow-revoke-unchecked/libpng_decode/og_lfi/big_building_001.0p.png"]}" \
+		"${BENCH_RESULTS_EST["libpng-auto-allow-revoke-unchecked/libpng_decode/unsafe/big_building_001.0p.png"]}")"
+LIBPNG_AUTO_OMNIGLOT_OVERHEAD="$(\
+	compute_overhead \
+		"${BENCH_RESULTS_EST["libpng-auto-allow-revoke/libpng_decode/og_lfi/big_building_001.0p.png"]}" \
+		"${BENCH_RESULTS_EST["libpng-auto-allow-revoke-unchecked/libpng_decode/og_lfi/big_building_001.0p.png"]}")"
+
+LIBPNG_EXPLICIT_UNSAFE="${BENCH_RESULTS["libpng-explicit-allow-revoke-unchecked/libpng_decode/unsafe/big_building_001.0p.png"]}"
+LIBPNG_EXPLICIT_ISOLATION="${BENCH_RESULTS["libpng-explicit-allow-revoke-unchecked/libpng_decode/og_lfi/big_building_001.0p.png"]}"
+LIBPNG_EXPLICIT_OMNIGLOT="${BENCH_RESULTS["libpng-explicit-allow-revoke/libpng_decode/og_lfi/big_building_001.0p.png"]}"
+LIBPNG_EXPLICIT_ISOLATION_OVERHEAD="$(\
+	compute_overhead \
+		"${BENCH_RESULTS_EST["libpng-explicit-allow-revoke-unchecked/libpng_decode/og_lfi/big_building_001.0p.png"]}" \
+		"${BENCH_RESULTS_EST["libpng-explicit-allow-revoke-unchecked/libpng_decode/unsafe/big_building_001.0p.png"]}")"
+LIBPNG_EXPLICIT_OMNIGLOT_OVERHEAD="$(\
+	compute_overhead \
+		"${BENCH_RESULTS_EST["libpng-explicit-allow-revoke/libpng_decode/og_lfi/big_building_001.0p.png"]}" \
+		"${BENCH_RESULTS_EST["libpng-explicit-allow-revoke-unchecked/libpng_decode/og_lfi/big_building_001.0p.png"]}")"
+
 cat <<EOF
-| Library   | RT  |    unsafe        |          isolation only       |            Omniglot           |
-|-----------+-----+------------------+-------------------------------+-------------------------------|
-| Brotli    | LFI | ${BROTLI_UNSAFE} | ${BROTLI_ISOLATION} ${BROTLI_ISOLATION_OVERHEAD} | ${BROTLI_OMNIGLOT} ${BROTLI_OMNIGLOT_OVERHEAD} |
-| libsodium | LFI | ${SODIUM_UNSAFE} | ${SODIUM_ISOLATION} ${SODIUM_ISOLATION_OVERHEAD} | ${SODIUM_OMNIGLOT} ${SODIUM_OMNIGLOT_OVERHEAD} |
-| libpng    | LFI | ${LIBPNG_UNSAFE} | ${LIBPNG_ISOLATION} ${LIBPNG_ISOLATION_OVERHEAD} | ${LIBPNG_OMNIGLOT} ${LIBPNG_OMNIGLOT_OVERHEAD} |
+| Library     | RT  |    unsafe        |          isolation only       |            Omniglot           |
+|-------------+-----+------------------+-------------------------------+-------------------------------|
+| Brotli      | LFI | ${BROTLI_UNSAFE} | ${BROTLI_ISOLATION} ${BROTLI_ISOLATION_OVERHEAD} | ${BROTLI_OMNIGLOT} ${BROTLI_OMNIGLOT_OVERHEAD} |
+| libsodium   | LFI | ${SODIUM_UNSAFE} | ${SODIUM_ISOLATION} ${SODIUM_ISOLATION_OVERHEAD} | ${SODIUM_OMNIGLOT} ${SODIUM_OMNIGLOT_OVERHEAD} |
+| libpng      | LFI | ${LIBPNG_UNSAFE} | ${LIBPNG_ISOLATION} ${LIBPNG_ISOLATION_OVERHEAD} | ${LIBPNG_OMNIGLOT} ${LIBPNG_OMNIGLOT_OVERHEAD} |
+| libpng auto | LFI | ${LIBPNG_AUTO_UNSAFE} | ${LIBPNG_AUTO_ISOLATION} ${LIBPNG_AUTO_ISOLATION_OVERHEAD} | ${LIBPNG_AUTO_OMNIGLOT} ${LIBPNG_AUTO_OMNIGLOT_OVERHEAD} |
+| libpng expl | LFI | ${LIBPNG_EXPLICIT_UNSAFE} | ${LIBPNG_EXPLICIT_ISOLATION} ${LIBPNG_EXPLICIT_ISOLATION_OVERHEAD} | ${LIBPNG_EXPLICIT_OMNIGLOT} ${LIBPNG_EXPLICIT_OMNIGLOT_OVERHEAD} |
 EOF
 
 echo
